@@ -29,7 +29,14 @@ function getClient() {
     credentials: {
       accessKeyId: process.env.B2_KEY_ID!,
       secretAccessKey: process.env.B2_APPLICATION_KEY!
-    }
+    },
+    // AWS SDK v3 (bản mới) mặc định tự thêm header/query checksum
+    // (x-amz-sdk-checksum-algorithm, x-amz-checksum-crc32) vào mọi request.
+    // Backblaze B2 (S3-compatible API) chưa hỗ trợ tính năng này, dẫn tới
+    // preflight OPTIONS bị B2 từ chối và trình duyệt báo lỗi CORS dù cấu
+    // hình CORS trên bucket đã đúng. Tắt hẳn để presigned URL hoạt động bình thường.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED'
   });
 }
 
