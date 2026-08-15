@@ -31,7 +31,47 @@
   .badge-bgd { @apply bg-gold text-white; }
   .badge-manager { @apply bg-green text-white; }
   .badge-member { @apply bg-line text-inksoft; }
+
+  /* Badge trạng thái cuộc họp — tính theo thời gian thực (xem lib/meetings/status.ts) */
+  .badge-status {
+    @apply inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full font-sans;
+  }
+  .badge-live { @apply badge-status bg-red text-white; }
+  .badge-upcoming { @apply badge-status bg-green text-white; }
+  .badge-done { @apply badge-status bg-slate text-white; }
+  .badge-draft { @apply badge-status bg-paper2 text-inksoft border border-line; }
+
   .input {
     @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40;
+  }
+
+  /* Bảng danh mục — dùng chung cho Cuộc họp / Phòng ban / Người dùng / Tìm kiếm / Audit Log */
+  .table-wrap {
+    @apply card overflow-x-auto p-0;
+  }
+  .table-clean {
+    @apply w-full text-sm border-collapse;
+  }
+  .table-clean thead th {
+    @apply text-left px-4 py-3 bg-paper2 border-b border-line text-inksoft font-semibold text-[11px] uppercase tracking-wide;
+  }
+  .table-clean tbody td {
+    @apply px-4 py-3 border-b border-line align-middle;
+  }
+  .table-clean tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  .table-clean tbody tr.row-click {
+    @apply cursor-pointer transition-colors hover:bg-paper/60;
+  }
+  .table-empty {
+    @apply px-4 py-8 text-center text-inksoft text-sm;
+  }
+
+  .tag {
+    @apply inline-block text-[11px] font-medium bg-green/10 text-green px-2.5 py-1 rounded-full;
+  }
+  .tag-muted {
+    @apply inline-block text-[11px] font-medium bg-paper2 text-inksoft px-2.5 py-1 rounded-full;
   }
 }

@@ -68,31 +68,33 @@ export default async function AuditLogPage({
         </button>
       </form>
 
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="table-wrap">
+        <table className="table-clean">
           <thead>
-            <tr className="text-left text-inksoft border-b border-line">
-              <th className="px-4 py-3 font-medium">Người dùng</th>
-              <th className="px-4 py-3 font-medium">Hành động</th>
-              <th className="px-4 py-3 font-medium">Đối tượng</th>
-              <th className="px-4 py-3 font-medium">Thời gian</th>
+            <tr>
+              <th>Người dùng</th>
+              <th>Hành động</th>
+              <th>Đối tượng</th>
+              <th>Thời gian</th>
             </tr>
           </thead>
           <tbody>
             {(logs ?? []).map((log: any) => (
-              <tr key={log.id} className="border-b border-line last:border-0">
-                <td className="px-4 py-3">{log.profiles?.full_name ?? '—'}</td>
-                <td className="px-4 py-3">{actionLabel[log.action] ?? log.action}</td>
-                <td className="px-4 py-3 font-mono text-xs">
+              <tr key={log.id}>
+                <td className="font-medium">{log.profiles?.full_name ?? '—'}</td>
+                <td>{actionLabel[log.action] ?? log.action}</td>
+                <td className="font-mono text-xs text-inksoft">
                   {log.entity_type}
                   {log.entity_id ? ` · ${String(log.entity_id).slice(0, 8)}` : ''}
                 </td>
-                <td className="px-4 py-3">{new Date(log.created_at).toLocaleString('vi-VN')}</td>
+                <td className="whitespace-nowrap text-inksoft">
+                  {new Date(log.created_at).toLocaleString('vi-VN')}
+                </td>
               </tr>
             ))}
             {(!logs || logs.length === 0) && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-inksoft">
+                <td colSpan={4} className="table-empty">
                   Chưa có bản ghi nào.
                 </td>
               </tr>

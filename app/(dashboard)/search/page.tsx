@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
+import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
 
 export default async function SearchPage({
   searchParams
@@ -41,10 +42,10 @@ export default async function SearchPage({
           ))}
         </select>
         <select name="status" defaultValue={searchParams.status ?? ''} className="input">
-          <option value="">Tất cả trạng thái</option>
+          <option value="">Tất cả trạng thái (DB)</option>
           <option value="DRAFT">Nháp</option>
-          <option value="OPEN">Đang diễn ra</option>
-          <option value="CLOSED">Đã kết thúc</option>
+          <option value="OPEN">Mở (OPEN)</option>
+          <option value="CLOSED">Đã đóng</option>
           <option value="ARCHIVED">Lưu trữ</option>
         </select>
         <button type="submit" className="btn-primary sm:col-span-4">
@@ -52,18 +53,48 @@ export default async function SearchPage({
         </button>
       </form>
 
-      <div className="space-y-2">
-        {(results ?? []).map((m: any) => (
-          <Link key={m.id} href={`/meetings/${m.id}`} className="card p-3.5 flex items-center justify-between hover:border-gold block">
-            <div>
-              <p className="font-mono text-xs text-inksoft">{m.code}</p>
-              <p className="font-medium">{m.title}</p>
-              <p className="text-xs text-inksoft">{m.departments?.name}</p>
-            </div>
-            <span className="text-xs text-inksoft">{new Date(m.start_at).toLocaleDateString('vi-VN')}</span>
-          </Link>
-        ))}
-        {results && results.length === 0 && <p className="text-sm text-inksoft">Không tìm thấy kết quả.</p>}
+      <div className="table-wrap">
+        <table className="table-clean">
+          <thead>
+            <tr>
+              <th>Mã</th>
+              <th>Tiêu đề</th>
+              <th>Phòng chủ trì</th>
+              <th>Ngày họp</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(results ?? []).map((m: any) => (
+              <tr key={m.id} className="row-click">
+                <td>
+                  <Link href={`/meetings/${m.id}`} className="font-mono text-xs text-gold">
+                    {m.code}
+                  </Link>
+                </td>
+                <td>
+                  <Link href={`/meetings/${m.id}`} className="font-medium">
+                    {m.title}
+                  </Link>
+                </td>
+                <td>{m.departments?.name}</td>
+                <td className="whitespace-nowrap text-inksoft">
+                  {new Date(m.start_at).toLocaleDateString('vi-VN')}
+                </td>
+                <td>
+                  <MeetingStatusBadge meeting={m} />
+                </td>
+              </tr>
+            ))}
+            {(!results || results.length === 0) && (
+              <tr>
+                <td colSpan={5} className="table-empty">
+                  Không tìm thấy kết quả.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

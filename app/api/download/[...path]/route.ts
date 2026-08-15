@@ -42,6 +42,31 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
     return NextResponse.redirect(url);
   }
 
+  if (kind === 'conclusion') {
+    // RLS trên meeting_conclusions (policy "conclusion_select") tự chặn nếu
+    // user không có quyền xem cuộc họp tương ứng.
+    const { data: conclusion } = await supabase
+      .from('meeting_conclusions')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!conclusion || !conclusion.storage_path) {
+      return NextResponse.json({ error: 'Không tìm thấy hoặc không có quyền' }, { status: 404 });
+    }
+
+    const url = await getDownloadUrl(conclusion.storage_path, conclusion.file_name ?? 'ket-luan', conclusion.mime_type);
+    await logAudit({
+      userId: user.id,
+      action: 'VIEW_CONCLUSION_FILE',
+      entityType: 'conclusion',
+      entityId: id,
+      metadata: { file_name: conclusion.file_name }
+    });
+
+    return NextResponse.redirect(url);
+  }
+
   if (kind === 'comment-attachment') {
     const { data: attachment } = await supabase
       .from('comment_attachments')

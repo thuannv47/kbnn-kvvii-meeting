@@ -3,6 +3,11 @@ import { createServerSupabase } from '@/lib/supabase/server';
 import { canManageOrg } from '@/lib/permissions';
 import DepartmentForm from '@/components/dashboard/department-form';
 
+const typeLabel: Record<string, string> = {
+  HEAD_OFFICE: 'Hội sở',
+  BRANCH: 'Chi nhánh / PGD'
+};
+
 export default async function DepartmentsPage() {
   const { profile } = await requireUser();
   const supabase = createServerSupabase();
@@ -14,25 +19,38 @@ export default async function DepartmentsPage() {
 
       {canManageOrg(profile) && <DepartmentForm />}
 
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="table-wrap">
+        <table className="table-clean">
           <thead>
-            <tr className="text-left text-inksoft border-b border-line">
-              <th className="px-4 py-3 font-medium">Mã</th>
-              <th className="px-4 py-3 font-medium">Tên</th>
-              <th className="px-4 py-3 font-medium">Loại</th>
-              <th className="px-4 py-3 font-medium">Trạng thái</th>
+            <tr>
+              <th>Mã</th>
+              <th>Tên</th>
+              <th>Loại</th>
+              <th>Trạng thái</th>
             </tr>
           </thead>
           <tbody>
             {(departments ?? []).map((d) => (
-              <tr key={d.id} className="border-b border-line last:border-0">
-                <td className="px-4 py-3 font-mono text-xs">{d.code}</td>
-                <td className="px-4 py-3">{d.name}</td>
-                <td className="px-4 py-3">{d.department_type}</td>
-                <td className="px-4 py-3">{d.active ? 'Hoạt động' : 'Ngừng'}</td>
+              <tr key={d.id}>
+                <td className="font-mono text-xs text-inksoft">{d.code}</td>
+                <td className="font-medium">{d.name}</td>
+                <td>{typeLabel[d.department_type] ?? d.department_type}</td>
+                <td>
+                  {d.active ? (
+                    <span className="tag">Hoạt động</span>
+                  ) : (
+                    <span className="tag-muted">Ngừng</span>
+                  )}
+                </td>
               </tr>
             ))}
+            {(!departments || departments.length === 0) && (
+              <tr>
+                <td colSpan={4} className="table-empty">
+                  Chưa có phòng ban nào.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

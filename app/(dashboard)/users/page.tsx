@@ -22,35 +22,44 @@ export default async function UsersPage() {
 
       <UserForm departments={departments ?? []} />
 
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="table-wrap">
+        <table className="table-clean">
           <thead>
-            <tr className="text-left text-inksoft border-b border-line">
-              <th className="px-4 py-3 font-medium">Họ tên</th>
-              <th className="px-4 py-3 font-medium">Tên đăng nhập</th>
-              <th className="px-4 py-3 font-medium">Phòng ban</th>
-              <th className="px-4 py-3 font-medium">Vai trò</th>
-              <th className="px-4 py-3 font-medium">Chức danh</th>
-              <th className="px-4 py-3 font-medium">Trạng thái</th>
-              <th className="px-4 py-3 font-medium"></th>
+            <tr>
+              <th>Họ tên</th>
+              <th>Tên đăng nhập</th>
+              <th>Phòng ban</th>
+              <th>Vai trò</th>
+              <th>Chức danh</th>
+              <th>Trạng thái</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {(users ?? []).map((u: any) => (
-              <tr key={u.id} className="border-b border-line last:border-0">
-                <td className="px-4 py-3">{u.full_name}</td>
-                <td className="px-4 py-3 font-mono text-xs text-inksoft">{u.username}</td>
-                <td className="px-4 py-3">{u.departments?.name}</td>
-                <td className="px-4 py-3">
+              <tr key={u.id}>
+                <td className="font-medium">{u.full_name}</td>
+                <td className="font-mono text-xs text-inksoft">{u.username}</td>
+                <td>{u.departments?.name}</td>
+                <td>
                   <RoleBadge role={u.role} />
                 </td>
-                <td className="px-4 py-3">{u.position}</td>
-                <td className="px-4 py-3">{u.active ? 'Hoạt động' : 'Ngừng'}</td>
-                <td className="px-4 py-3">
+                <td>{u.position}</td>
+                <td>
+                  {u.active ? <span className="tag">Hoạt động</span> : <span className="tag-muted">Ngừng</span>}
+                </td>
+                <td>
                   <UserRowActions user={u} departments={departments ?? []} currentUserId={profile.id} />
                 </td>
               </tr>
             ))}
+            {(!users || users.length === 0) && (
+              <tr>
+                <td colSpan={7} className="table-empty">
+                  Chưa có người dùng nào.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

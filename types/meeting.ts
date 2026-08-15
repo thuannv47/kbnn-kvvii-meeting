@@ -63,4 +63,13 @@ export interface MeetingConclusion {
   created_by: string;
   confirmed_by: string | null;
   confirmed_at: string | null;
+  // File kết luận đính kèm (văn bản chính thức do chủ trì/BGĐ tải lên) —
+  // khác với ô nội dung text ở trên, đây là 1 file duy nhất đại diện cho
+  // kết luận cuộc họp, có thể thay thế cho tới khi được xác nhận.
+  file_name: string | null;
+  storage_path: string | null;
+  mime_type: string | null;
+  file_size: number | null;
+  attached_by: string | null;
+  attached_at: string | null;
 }

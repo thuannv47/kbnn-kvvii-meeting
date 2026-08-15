@@ -12,7 +12,9 @@ const config: Config = {
         line: '#DEDCD2',
         gold: '#8C6423',
         red: '#A63D40',
-        green: '#3C7A5D'
+        green: '#3C7A5D',
+        slate: '#4C5C7A',
+        paper2: '#E7E4D9'
       },
       fontFamily: {
         display: ['"Source Serif 4"', 'serif'],

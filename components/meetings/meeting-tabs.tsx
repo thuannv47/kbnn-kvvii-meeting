@@ -7,6 +7,7 @@ import TabInfo from '@/components/meetings/tab-info';
 import TabDocuments from '@/components/documents/tab-documents';
 import TabComments from '@/components/comments/tab-comments';
 import TabConclusion from '@/components/conclusions/tab-conclusion';
+import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
 
 type TabKey = 'info' | 'documents' | 'comments' | 'conclusion';
 
@@ -35,7 +36,10 @@ export default function MeetingTabs(props: {
   return (
     <div className="space-y-4">
       <div>
-        <p className="font-mono text-xs text-inksoft mb-1">{meeting.code}</p>
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+          <MeetingStatusBadge meeting={meeting} />
+          <p className="font-mono text-xs text-inksoft">{meeting.code}</p>
+        </div>
         <h1 className="text-2xl mb-1">{meeting.title}</h1>
         <p className="text-inksoft text-sm">
           {hostDepartmentName} · {new Date(meeting.start_at).toLocaleString('vi-VN')} →{' '}

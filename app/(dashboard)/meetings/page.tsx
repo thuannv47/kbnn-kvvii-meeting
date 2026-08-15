@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { canCreateMeeting } from '@/lib/permissions';
+import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
 
 export default async function MeetingsListPage() {
   const { profile } = await requireUser();
@@ -23,36 +24,42 @@ export default async function MeetingsListPage() {
         )}
       </div>
 
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="table-wrap">
+        <table className="table-clean">
           <thead>
-            <tr className="text-left text-inksoft border-b border-line">
-              <th className="px-4 py-3 font-medium">Mã</th>
-              <th className="px-4 py-3 font-medium">Tiêu đề</th>
-              <th className="px-4 py-3 font-medium">Phòng chủ trì</th>
-              <th className="px-4 py-3 font-medium">Thời gian</th>
-              <th className="px-4 py-3 font-medium">Trạng thái</th>
+            <tr>
+              <th>Mã</th>
+              <th>Tiêu đề</th>
+              <th>Phòng chủ trì</th>
+              <th>Thời gian</th>
+              <th>Trạng thái</th>
             </tr>
           </thead>
           <tbody>
             {(meetings ?? []).map((m: any) => (
-              <tr key={m.id} className="border-b border-line last:border-0 hover:bg-paper cursor-pointer">
-                <td className="px-4 py-3">
+              <tr key={m.id} className="row-click">
+                <td>
                   <Link href={`/meetings/${m.id}`} className="font-mono text-xs text-gold">
                     {m.code}
                   </Link>
                 </td>
-                <td className="px-4 py-3">
-                  <Link href={`/meetings/${m.id}`}>{m.title}</Link>
+                <td>
+                  <Link href={`/meetings/${m.id}`} className="font-medium">
+                    {m.title}
+                  </Link>
                 </td>
-                <td className="px-4 py-3">{m.departments?.name}</td>
-                <td className="px-4 py-3">{new Date(m.start_at).toLocaleDateString('vi-VN')}</td>
-                <td className="px-4 py-3">{m.status}</td>
+                <td>{m.departments?.name}</td>
+                <td className="whitespace-nowrap text-inksoft">
+                  {new Date(m.start_at).toLocaleString('vi-VN')}
+                </td>
+                <td>
+                  <MeetingStatusBadge meeting={m} />
+                </td>
               </tr>
             ))}
             {(!meetings || meetings.length === 0) && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-inksoft">
+                <td colSpan={5} className="table-empty">
                   Chưa có cuộc họp nào.
                 </td>
               </tr>
