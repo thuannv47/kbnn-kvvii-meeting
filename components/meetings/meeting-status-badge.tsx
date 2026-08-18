@@ -11,7 +11,11 @@ export default function MeetingStatusBadge({
   const st = getMeetingDisplayStatus(meeting, now);
   return (
     <span className={st.className}>
-      <span aria-hidden>{st.icon}</span>
+      {st.key === 'LIVE' ? (
+        <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current animate-pulse-dot" />
+      ) : (
+        <span aria-hidden>{st.icon}</span>
+      )}
       {st.label}
     </span>
   );

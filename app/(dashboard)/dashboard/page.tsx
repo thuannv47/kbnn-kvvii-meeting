@@ -50,12 +50,15 @@ export default async function DashboardPage() {
     .filter((m) => getMeetingDisplayStatus(m, now).key === 'DONE')
     .sort((a, b) => new Date(b.end_at).getTime() - new Date(a.end_at).getTime());
 
+  // Tổng số tài liệu (trong các cuộc họp còn hạn hiển thị) để lên KPI, không hard-code.
+  const totalDocs = Object.values(docCountByMeeting).reduce((sum, n) => sum + n, 0);
+
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="space-y-7">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl">Dashboard</h1>
-          <p className="text-xs text-inksoft mt-1">
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Dashboard</h1>
+          <p className="mt-1 max-w-md text-xs leading-relaxed text-inksoft">
             Danh sách chỉ hiển thị cuộc họp còn trong hạn hiển thị. Xem đầy đủ lịch sử ở mục Tìm kiếm.
           </p>
         </div>
@@ -66,21 +69,33 @@ export default async function DashboardPage() {
         )}
       </div>
 
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard icon="🔴" tint="bg-red-soft" num={ongoing.length} label="Đang diễn ra" />
+        <KpiCard icon="📅" tint="bg-green-soft" num={upcoming.length} label="Sắp diễn ra" />
+        <KpiCard icon="✅" tint="bg-slate-soft" num={justEnded.length} label="Vừa kết thúc" />
+        <KpiCard icon="📎" tint="bg-gold-soft" num={totalDocs} label="Tài liệu trong hạn" />
+      </div>
+
       <Section
-        title="🔴 Đang diễn ra"
+        title="Đang diễn ra"
+        dotColor="bg-red"
         items={ongoing}
-        empty="Hiện không có cuộc họp nào đang diễn ra."
+        empty="Chưa có cuộc họp nào đang diễn ra. Danh sách sẽ tự cập nhật khi đến giờ họp."
+        emptyIcon="🔴"
         docCountByMeeting={docCountByMeeting}
       />
       <Section
-        title="📅 Sắp diễn ra"
+        title="Sắp diễn ra"
+        dotColor="bg-green"
         items={upcoming}
         empty="Chưa có cuộc họp sắp tới."
+        emptyIcon="📅"
         docCountByMeeting={docCountByMeeting}
       />
       {justEnded.length > 0 && (
         <Section
-          title="✅ Vừa kết thúc (còn trong hạn hiển thị)"
+          title="Vừa kết thúc (còn trong hạn hiển thị)"
+          dotColor="bg-slate"
           items={justEnded}
           empty=""
           docCountByMeeting={docCountByMeeting}
@@ -90,22 +105,66 @@ export default async function DashboardPage() {
   );
 }
 
+function KpiCard({
+  icon,
+  tint,
+  num,
+  label
+}: {
+  icon: string;
+  tint: string;
+  num: number;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl2 border border-line bg-surface p-3.5 shadow-card">
+      <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] text-[15px] ${tint}`}>
+        {icon}
+      </div>
+      <div>
+        <div className="font-display text-xl font-semibold leading-none text-ink">{num}</div>
+        <div className="mt-1 text-[10.5px] leading-tight text-inksoft">{label}</div>
+      </div>
+    </div>
+  );
+}
+
 function Section({
   title,
+  dotColor,
   items,
   empty,
+  emptyIcon,
   docCountByMeeting
 }: {
   title: string;
+  dotColor: string;
   items: any[];
   empty: string;
+  emptyIcon?: string;
   docCountByMeeting: Record<string, number>;
 }) {
   return (
     <section>
-      <h2 className="text-lg mb-3 font-display font-semibold">{title}</h2>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span aria-hidden className={`h-2 w-2 rounded-full ${dotColor}`} />
+          <h2 className="font-display text-[15px] font-semibold text-ink">{title}</h2>
+        </div>
+        <span className="rounded-full bg-paper2 px-2.5 py-0.5 font-mono text-[10.5px] text-inksoft">
+          {items.length}
+        </span>
+      </div>
+
       {items.length === 0 ? (
-        <p className="text-sm text-inksoft">{empty}</p>
+        <div className="flex items-center gap-3 rounded-xl2 border border-dashed border-line bg-white/50 p-4">
+          {emptyIcon && (
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] bg-slate-soft text-[15px]">
+              {emptyIcon}
+            </div>
+          )}
+          <p className="text-[11.5px] text-inksoft">{empty}</p>
+        </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {items.map((m) => (

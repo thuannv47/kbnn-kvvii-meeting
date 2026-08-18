@@ -33,13 +33,14 @@
   .badge-member { @apply bg-line text-inksoft; }
 
   /* Badge trạng thái cuộc họp — tính theo thời gian thực (xem lib/meetings/status.ts) */
+  /* Kiểu "con dấu tài liệu": viên nang nhỏ, nền màu nhạt, chữ mono hoa, viền mảnh */
   .badge-status {
-    @apply inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full font-sans;
+    @apply inline-flex items-center gap-1.5 text-[9.5px] font-mono font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full border;
   }
-  .badge-live { @apply badge-status bg-red text-white; }
-  .badge-upcoming { @apply badge-status bg-green text-white; }
-  .badge-done { @apply badge-status bg-slate text-white; }
-  .badge-draft { @apply badge-status bg-paper2 text-inksoft border border-line; }
+  .badge-live { @apply badge-status bg-red-soft text-red border-red/20; }
+  .badge-upcoming { @apply badge-status bg-green-soft text-green border-green/20; }
+  .badge-done { @apply badge-status bg-slate-soft text-slate border-slate/20; }
+  .badge-draft { @apply badge-status bg-paper2 text-inksoft border-line; }
 
   .input {
     @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40;
