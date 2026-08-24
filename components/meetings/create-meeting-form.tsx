@@ -31,7 +31,17 @@ export default function CreateMeetingForm({
     setSelectedDepts((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
-  function submit(status: 'DRAFT' | 'OPEN', formData: FormData) {
+  const allSelected = departments.length > 0 && selectedDepts.length === departments.length;
+
+  function toggleAll() {
+    setSelectedDepts(allSelected ? [] : departments.map((d) => d.id));
+  }
+
+  // Luôn tạo ở dạng NHÁP — người khác chưa thấy được. Sau khi tạo, vào chi tiết
+  // cuộc họp và bấm "Duyệt tạo cuộc họp" khi đã sẵn sàng cho các phòng được
+  // phân quyền xem. Không cho chọn trạng thái ngay lúc tạo để tránh bỏ qua bước
+  // kiểm tra lại thông tin/phân quyền trước khi mở.
+  function submit(formData: FormData) {
     setError(null);
     const visRaw = String(formData.get('visibility_duration_hours') || '');
     startTransition(async () => {
@@ -43,7 +53,7 @@ export default function CreateMeetingForm({
         end_at: String(formData.get('end_at') || ''),
         visibility_duration_hours: visRaw === '' ? null : Number(visRaw),
         participant_department_ids: selectedDepts,
-        status
+        status: 'DRAFT'
       });
       if (res?.error) setError(res.error);
       else if (res?.data) router.push(`/meetings/${res.data.id}`);
@@ -51,10 +61,7 @@ export default function CreateMeetingForm({
   }
 
   return (
-    <form
-      className="card p-5 space-y-4"
-      action={(fd) => submit((fd.get('_action') as any) || 'DRAFT', fd)}
-    >
+    <form className="card p-5 space-y-4" action={submit}>
       <div>
         <label className="text-sm font-medium block mb-1">Tiêu đề *</label>
         <input name="title" required className="input" placeholder="VD: Họp giao ban khu vực tháng 8/2026" />
@@ -105,9 +112,18 @@ export default function CreateMeetingForm({
             </option>
           ))}
         </select>
+        <p className="text-xs text-inksoft mt-1">
+          Sau mốc thời gian này kể từ lúc kết thúc, cuộc họp tự ẩn khỏi Trang chủ và chuyển "Đã đóng"
+          (vẫn tìm được ở Tìm kiếm) — không cần đóng/lưu trữ thủ công.
+        </p>
       </div>
       <div>
-        <label className="text-sm font-medium block mb-2">Phòng được tham gia</label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium">Phòng được tham gia</label>
+          <button type="button" onClick={toggleAll} className="text-xs text-gold underline">
+            {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+          </button>
+        </div>
         <div className="grid grid-cols-2 gap-1.5">
           {departments.map((d) => (
             <label key={d.id} className="flex items-center gap-2 text-sm">
@@ -125,25 +141,16 @@ export default function CreateMeetingForm({
       {error && <p className="text-red text-sm">{error}</p>}
 
       <div className="flex gap-2 pt-2">
-        <button
-          type="submit"
-          name="_action"
-          value="DRAFT"
-          disabled={isPending}
-          className="btn"
-        >
-          Lưu nháp
-        </button>
-        <button
-          type="submit"
-          name="_action"
-          value="OPEN"
-          disabled={isPending}
-          className="btn-primary"
-        >
-          Mở cuộc họp
+        <button type="submit" disabled={isPending} className="btn-primary">
+          {isPending && <span className="spinner" />}
+          {isPending ? 'Đang tạo…' : 'Tạo cuộc họp (Nháp)'}
         </button>
       </div>
+      <p className="text-xs text-inksoft">
+        Cuộc họp sẽ được tạo ở dạng <span className="font-medium text-ink">Nháp</span> — chỉ mình bạn thấy
+        được. Vào chi tiết cuộc họp sau khi tạo để bấm "Duyệt tạo cuộc họp" khi sẵn sàng cho các phòng ban
+        được phân quyền xem.
+      </p>
     </form>
   );
 }

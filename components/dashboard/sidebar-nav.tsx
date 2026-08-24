@@ -21,17 +21,21 @@ export default function SidebarNav({
   profile: Profile;
   departmentName?: string | null;
 }) {
+  const pathname = usePathname();
+
   return (
     <aside className="hidden md:flex md:flex-col bg-ink text-paper px-4 py-6">
       <div className="font-display text-white font-semibold mb-6 px-2">Phòng họp không giấy tờ</div>
 
       <nav className="flex-1 space-y-0.5">
-        <NavItem href="/dashboard" icon="🏠" label="Trang chủ" />
-        <NavItem href="/meetings" icon="📅" label="Cuộc họp" />
-        <NavItem href="/search" icon="🔎" label="Tìm kiếm" />
-        <NavItem href="/departments" icon="🏢" label="Phòng ban" />
-        {canManageOrg(profile) && <NavItem href="/users" icon="👤" label="Người dùng" />}
-        {canManageOrg(profile) && <NavItem href="/admin" icon="🛡️" label="Quản trị / Audit" />}
+        <NavItem href="/dashboard" icon="🏠" label="Trang chủ" pathname={pathname} />
+        <NavItem href="/meetings" icon="📅" label="Cuộc họp" pathname={pathname} />
+        <NavItem href="/search" icon="🔎" label="Tìm kiếm" pathname={pathname} />
+        <NavItem href="/departments" icon="🏢" label="Phòng ban" pathname={pathname} />
+        {canManageOrg(profile) && <NavItem href="/users" icon="👤" label="Người dùng" pathname={pathname} />}
+        {canManageOrg(profile) && (
+          <NavItem href="/admin" icon="🛡️" label="Quản trị / Audit" pathname={pathname} />
+        )}
       </nav>
 
       <div className="border-t border-white/10 pt-4 mt-4">
@@ -53,28 +57,33 @@ export default function SidebarNav({
   );
 }
 
-function NavItem({ href, icon, label }: { href: string; icon: string; label: string }) {
-  const pathname = usePathname();
-  // "/departments" không được coi là active khi đang ở "/department-x-khac" — dùng ranh giới "/" rõ ràng
+function NavItem({
+  href,
+  icon,
+  label,
+  pathname
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  pathname: string;
+}) {
+  // "/admin" phải khớp chính xác hoặc là tiền tố có dấu "/" theo sau,
+  // để không lỡ tô sáng nhầm mục khác có tiền tố trùng.
   const active = pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <Link
       href={href}
       aria-current={active ? 'page' : undefined}
-      className={`relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+      className={`relative flex items-center gap-2.5 pl-3 pr-3 py-2.5 rounded-lg text-sm transition-colors ${
         active
-          ? 'bg-white/12 text-white font-semibold'
+          ? 'bg-white/10 text-white font-semibold'
           : 'text-paper/85 hover:bg-white/10 hover:text-white'
       }`}
     >
-      {active && (
-        <span
-          aria-hidden
-          className="absolute -left-4 top-1/2 h-[18px] w-[3px] -translate-y-1/2 rounded-full bg-gold-soft"
-        />
-      )}
-      <span>{icon}</span>
+      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-gold" />}
+      <span className={active ? 'opacity-100' : 'opacity-80'}>{icon}</span>
       <span>{label}</span>
     </Link>
   );

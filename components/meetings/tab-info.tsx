@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Meeting, MeetingDepartment } from '@/types/meeting';
 import type { Department } from '@/types/user';
@@ -39,9 +39,24 @@ export default function TabInfo({
   );
   const [isPending, startTransition] = useTransition();
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [approveMsg, setApproveMsg] = useState<string | null>(null);
+  const [isApproving, startApproveTransition] = useTransition();
+  const [isCancelling, startCancelTransition] = useTransition();
 
   function toggle(id: string, field: 'can_view' | 'can_comment') {
     setRows((prev) => prev.map((r) => (r.department_id === id ? { ...r, [field]: !r[field] } : r)));
+  }
+
+  // "Chọn tất cả" theo từng cột (Xem / Ý kiến) — bấm 1 lần để bật hết, bấm lại để tắt hết.
+  // Ô đầu bảng tự chuyển sang trạng thái "chưa xác định" (indeterminate) khi chỉ một phần được chọn.
+  const allViewChecked = rows.length > 0 && rows.every((r) => r.can_view);
+  const allCommentChecked = rows.length > 0 && rows.every((r) => r.can_comment);
+  const someViewChecked = rows.some((r) => r.can_view);
+  const someCommentChecked = rows.some((r) => r.can_comment);
+
+  function toggleAll(field: 'can_view' | 'can_comment') {
+    const next = field === 'can_view' ? !allViewChecked : !allCommentChecked;
+    setRows((prev) => prev.map((r) => ({ ...r, [field]: next })));
   }
 
   function save() {
@@ -59,15 +74,20 @@ export default function TabInfo({
     });
   }
 
-  function changeStatus(status: 'DRAFT' | 'OPEN' | 'CLOSED' | 'ARCHIVED') {
-    startTransition(async () => {
-      await updateMeetingStatusAction(meeting.id, status);
+  // Duyệt: chuyển Nháp -> Mở, để các phòng ban được phân quyền bắt đầu nhìn thấy cuộc họp.
+  function handleApprove() {
+    setApproveMsg(null);
+    startApproveTransition(async () => {
+      const res = await updateMeetingStatusAction(meeting.id, 'OPEN');
+      if (res?.error) setApproveMsg(res.error);
     });
   }
 
+  // Huỷ sớm (ngoại lệ): dùng khi cuộc họp bị huỷ TRƯỚC/TRONG khi diễn ra — khác với việc
+  // hệ thống tự động chuyển "Đã đóng" 48h SAU khi cuộc họp kết thúc (không cần bấm tay).
   function handleCancel() {
     if (!confirm('Huỷ cuộc họp này? Trạng thái sẽ chuyển sang "Lưu trữ", dữ liệu vẫn được giữ lại.')) return;
-    startTransition(async () => {
+    startCancelTransition(async () => {
       await updateMeetingStatusAction(meeting.id, 'ARCHIVED');
     });
   }
@@ -92,6 +112,8 @@ export default function TabInfo({
     });
   }
 
+  const canCancel = canManage && (meeting.status === 'OPEN' || meeting.status === 'DRAFT');
+
   return (
     <div className="space-y-5">
       <div className="card p-4">
@@ -103,32 +125,52 @@ export default function TabInfo({
         <h3 className="font-semibold mb-2">Hiển thị</h3>
         <p className="text-sm text-inksoft">
           {meeting.visible_until
-            ? `Tự ẩn khỏi Dashboard sau ${new Date(meeting.visible_until).toLocaleString('vi-VN')} (dữ liệu vẫn giữ nguyên, tìm được qua Tìm kiếm).`
+            ? `Tự ẩn khỏi Trang chủ sau ${new Date(meeting.visible_until).toLocaleString('vi-VN')} (dữ liệu vẫn giữ nguyên, tìm được qua Tìm kiếm).`
             : 'Không giới hạn thời gian hiển thị.'}
         </p>
       </div>
 
-      {canManage && (
-        <div className="card p-4">
-          <h3 className="font-semibold mb-3">Trạng thái cuộc họp</h3>
-          <div className="flex gap-2 flex-wrap">
-            {(['DRAFT', 'OPEN', 'CLOSED', 'ARCHIVED'] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => changeStatus(s)}
-                disabled={isPending}
-                className={`btn ${meeting.status === s ? 'border-gold text-gold' : ''}`}
-              >
-                {s}
-              </button>
-            ))}
+      {/* Nháp -> Duyệt: chỉ 1 bước duyệt duy nhất, không có nút "Đóng"/"Lưu trữ" thủ công —
+          hệ thống tự chuyển "Đã đóng" 48 giờ sau khi cuộc họp kết thúc (xem cron auto-close-meetings). */}
+      {canManage && meeting.status === 'DRAFT' && (
+        <div className="card p-4 border-gold/40">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="badge-draft">📝 Nháp</span>
+            <h3 className="font-semibold">Cuộc họp đang ở dạng Nháp</h3>
           </div>
-          <button onClick={handleCancel} disabled={isPending} className="btn mt-3">
-            Huỷ cuộc họp
-          </button>
-          <p className="text-xs text-inksoft mt-1.5">
-            Chuyển trạng thái sang "Lưu trữ" — dừng hiệu lực nhưng vẫn giữ nguyên dữ liệu và lịch sử.
+          <p className="text-sm text-inksoft mb-3">
+            Hiện chỉ mình bạn thấy được cuộc họp này. Kiểm tra lại thông tin và{' '}
+            <span className="font-medium text-ink">Phân quyền phòng tham gia</span> bên dưới, sau đó bấm
+            "Duyệt tạo cuộc họp" để các phòng ban được phân quyền bắt đầu nhìn thấy.
           </p>
+          <button onClick={handleApprove} disabled={isApproving} className="btn-primary">
+            {isApproving && <span className="spinner" />}
+            {isApproving ? 'Đang duyệt…' : '✅ Duyệt tạo cuộc họp'}
+          </button>
+          {approveMsg && <p className="text-sm text-red mt-2">{approveMsg}</p>}
+        </div>
+      )}
+
+      {canManage && meeting.status !== 'DRAFT' && (
+        <div className="card p-4">
+          <h3 className="font-semibold mb-2">Trạng thái cuộc họp</h3>
+          <p className="text-sm text-inksoft">
+            Cuộc họp đã được duyệt và các phòng ban được phân quyền có thể xem. Hệ thống sẽ{' '}
+            <span className="font-medium text-ink">tự động chuyển sang "Đã đóng"</span> 48 giờ sau khi cuộc
+            họp kết thúc — không cần thao tác thủ công.
+          </p>
+          {canCancel && (
+            <>
+              <button onClick={handleCancel} disabled={isCancelling} className="btn mt-3 text-red border-red/30">
+                {isCancelling && <span className="spinner" />}
+                {isCancelling ? 'Đang huỷ…' : 'Huỷ cuộc họp'}
+              </button>
+              <p className="text-xs text-inksoft mt-1.5">
+                Chỉ dùng khi cuộc họp bị huỷ trước hoặc trong lúc diễn ra (VD: hoãn đột xuất) — khác với việc
+                tự động đóng sau khi kết thúc ở trên.
+              </p>
+            </>
+          )}
         </div>
       )}
 
@@ -150,6 +192,36 @@ export default function TabInfo({
       {canManage && (
         <div className="card p-4">
           <h3 className="font-semibold mb-3">Phân quyền phòng tham gia</h3>
+
+          {/* Hàng tiêu đề: chọn tất cả / bỏ chọn tất cả theo từng cột */}
+          <div className="flex items-center justify-between text-xs font-semibold text-inksoft py-1.5 border-b border-line">
+            <span>Chọn tất cả</span>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allViewChecked}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someViewChecked && !allViewChecked;
+                  }}
+                  onChange={() => toggleAll('can_view')}
+                />
+                Xem
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allCommentChecked}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someCommentChecked && !allCommentChecked;
+                  }}
+                  onChange={() => toggleAll('can_comment')}
+                />
+                Ý kiến
+              </label>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             {rows.map((r) => (
               <div key={r.department_id} className="flex items-center justify-between text-sm py-1.5 border-b border-line last:border-0">
@@ -168,7 +240,8 @@ export default function TabInfo({
             ))}
           </div>
           <button onClick={save} disabled={isPending} className="btn-primary mt-3">
-            Lưu phân quyền
+            {isPending && <span className="spinner" />}
+            {isPending ? 'Đang lưu…' : 'Lưu phân quyền'}
           </button>
           {savedMsg && <p className="text-sm text-inksoft mt-2">{savedMsg}</p>}
         </div>
