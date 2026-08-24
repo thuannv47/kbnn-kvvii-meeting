@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type { Profile } from '@/types/user';
 import { canManageOrg } from '@/lib/permissions';
 import RoleBadge from '@/components/ui/role-badge';
@@ -23,7 +26,7 @@ export default function SidebarNav({
       <div className="font-display text-white font-semibold mb-6 px-2">Phòng họp không giấy tờ</div>
 
       <nav className="flex-1 space-y-0.5">
-        <NavItem href="/dashboard" icon="🏠" label="Dashboard" />
+        <NavItem href="/dashboard" icon="🏠" label="Trang chủ" />
         <NavItem href="/meetings" icon="📅" label="Cuộc họp" />
         <NavItem href="/search" icon="🔎" label="Tìm kiếm" />
         <NavItem href="/departments" icon="🏢" label="Phòng ban" />
@@ -51,11 +54,26 @@ export default function SidebarNav({
 }
 
 function NavItem({ href, icon, label }: { href: string; icon: string; label: string }) {
+  const pathname = usePathname();
+  // "/departments" không được coi là active khi đang ở "/department-x-khac" — dùng ranh giới "/" rõ ràng
+  const active = pathname === href || pathname.startsWith(`${href}/`);
+
   return (
     <Link
       href={href}
-      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-paper/85 hover:bg-white/10 hover:text-white transition-colors"
+      aria-current={active ? 'page' : undefined}
+      className={`relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+        active
+          ? 'bg-white/12 text-white font-semibold'
+          : 'text-paper/85 hover:bg-white/10 hover:text-white'
+      }`}
     >
+      {active && (
+        <span
+          aria-hidden
+          className="absolute -left-4 top-1/2 h-[18px] w-[3px] -translate-y-1/2 rounded-full bg-gold-soft"
+        />
+      )}
       <span>{icon}</span>
       <span>{label}</span>
     </Link>

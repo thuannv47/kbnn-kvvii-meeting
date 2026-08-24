@@ -57,7 +57,7 @@ export default async function DashboardPage() {
     <div className="space-y-7">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Dashboard</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Trang chủ</h1>
           <p className="mt-1 max-w-md text-xs leading-relaxed text-inksoft">
             Danh sách chỉ hiển thị cuộc họp còn trong hạn hiển thị. Xem đầy đủ lịch sử ở mục Tìm kiếm.
           </p>
