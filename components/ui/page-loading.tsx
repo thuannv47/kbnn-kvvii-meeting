@@ -1,15 +1,24 @@
-// Hiển thị khi Next.js đang tải dữ liệu cho trang đích (route segment).
-// Next.js tự động render component này (qua loading.tsx) ngay khi người dùng
-// bấm vào một mục trong menu, trước khi trang mới sẵn sàng — giúp người dùng
-// biết chắc hệ thống đang xử lý, không phải bị đứng máy hay mất kết nối.
-export default function PageLoading({ label = 'Đang tải dữ liệu…' }: { label?: string }) {
+/**
+ * UI hiển thị tạm trong lúc server đang tải dữ liệu cho trang (Next.js tự
+ * dùng file loading.tsx làm Suspense fallback ngay khi người dùng bấm điều
+ * hướng sang trang này) — để họ biết là đang có kết nối, không phải đứng máy.
+ */
+export default function PageLoading({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 py-16">
-      <span
-        aria-hidden
-        className="h-8 w-8 animate-spin rounded-full border-[3px] border-line border-t-gold"
-      />
-      <p className="font-mono text-[11.5px] uppercase tracking-wide text-inksoft">{label}</p>
+    <div className="space-y-4">
+      <div className="skeleton h-7 w-40" />
+      <div className="skeleton h-4 w-72" />
+      <div className="table-wrap p-0 overflow-hidden">
+        <div className="skeleton h-9 w-full rounded-none" />
+        <div className="divide-y divide-line">
+          {Array.from({ length: rows }).map((_, i) => (
+            <div key={i} className="p-4 space-y-2">
+              <div className="skeleton h-3.5 w-1/3" />
+              <div className="skeleton h-3 w-2/3" />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { canManageOrg } from '@/lib/permissions';
 import DepartmentForm from '@/components/dashboard/department-form';
-import DepartmentsTable from '@/components/dashboard/departments-table';
+import DepartmentFilter from '@/components/dashboard/department-filter';
 
 export default async function DepartmentsPage() {
   const { profile } = await requireUser();
@@ -15,7 +15,7 @@ export default async function DepartmentsPage() {
 
       {canManageOrg(profile) && <DepartmentForm />}
 
-      <DepartmentsTable departments={departments ?? []} />
+      <DepartmentFilter departments={departments ?? []} />
     </div>
   );
 }

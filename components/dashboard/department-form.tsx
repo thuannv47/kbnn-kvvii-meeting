@@ -37,7 +37,8 @@ export default function DepartmentForm() {
         </select>
       </div>
       <button type="submit" disabled={isPending} className="btn-primary">
-        + Thêm
+        {isPending && <span className="spinner" />}
+        {isPending ? 'Đang thêm…' : '+ Thêm'}
       </button>
       {error && <p className="text-red text-sm w-full">{error}</p>}
     </form>

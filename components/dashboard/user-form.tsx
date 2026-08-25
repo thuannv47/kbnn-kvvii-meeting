@@ -70,6 +70,7 @@ export default function UserForm({ departments }: { departments: Department[] })
       </div>
       {error && <p className="text-red text-sm">{error}</p>}
       <button type="submit" disabled={isPending} className="btn-primary">
+        {isPending && <span className="spinner" />}
         {isPending ? 'Đang tạo…' : '+ Tạo người dùng'}
       </button>
     </form>
