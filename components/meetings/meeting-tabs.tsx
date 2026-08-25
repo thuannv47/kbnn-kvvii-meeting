@@ -69,6 +69,7 @@ export default function MeetingTabs(props: {
             allDepartments={props.allDepartments}
             canManage={canManage}
             canDelete={props.canDelete}
+            profile={props.profile}
           />
         )}
         {tab === 'documents' && (

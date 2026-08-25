@@ -31,6 +31,12 @@ export default function CreateMeetingForm({
     setSelectedDepts((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
+  const allDeptsSelected = departments.length > 0 && selectedDepts.length === departments.length;
+
+  function toggleAllDepts() {
+    setSelectedDepts(allDeptsSelected ? [] : departments.map((d) => d.id));
+  }
+
   function submit(status: 'DRAFT' | 'OPEN', formData: FormData) {
     setError(null);
     const visRaw = String(formData.get('visibility_duration_hours') || '');
@@ -107,10 +113,23 @@ export default function CreateMeetingForm({
         </select>
       </div>
       <div>
-        <label className="text-sm font-medium block mb-2">Phòng được tham gia</label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium">Phòng được tham gia</label>
+          <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={allDeptsSelected}
+              ref={(el) => {
+                if (el) el.indeterminate = !allDeptsSelected && selectedDepts.length > 0;
+              }}
+              onChange={toggleAllDepts}
+            />
+            Chọn tất cả
+          </label>
+        </div>
         <div className="grid grid-cols-2 gap-1.5">
           {departments.map((d) => (
-            <label key={d.id} className="flex items-center gap-2 text-sm">
+            <label key={d.id} className="flex items-center gap-2 text-sm cursor-pointer">
               <input
                 type="checkbox"
                 checked={selectedDepts.includes(d.id)}
@@ -122,6 +141,12 @@ export default function CreateMeetingForm({
         </div>
       </div>
 
+      <p className="text-xs text-inksoft -mt-1">
+        Cuộc họp sẽ được lưu ở trạng thái <b>Nháp</b> — chỉ phòng chủ trì nhìn thấy để chỉnh sửa, xoá nội
+        dung. Vào chi tiết cuộc họp và bấm <b>"Duyệt tạo cuộc họp"</b> khi đã hoàn tất, các phòng được
+        tham gia mới bắt đầu nhìn thấy.
+      </p>
+
       {error && <p className="text-red text-sm">{error}</p>}
 
       <div className="flex gap-2 pt-2">
@@ -130,18 +155,9 @@ export default function CreateMeetingForm({
           name="_action"
           value="DRAFT"
           disabled={isPending}
-          className="btn"
-        >
-          Lưu nháp
-        </button>
-        <button
-          type="submit"
-          name="_action"
-          value="OPEN"
-          disabled={isPending}
           className="btn-primary"
         >
-          Mở cuộc họp
+          {isPending ? 'Đang lưu...' : 'Lưu nháp'}
         </button>
       </div>
     </form>

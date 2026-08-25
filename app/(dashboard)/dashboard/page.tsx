@@ -42,6 +42,13 @@ export default async function DashboardPage() {
   // Trạng thái hiển thị được tính theo THỜI GIAN THỰC (start_at/end_at so với hiện tại),
   // không chỉ dựa vào cột status trong DB — để "Đang diễn ra" đúng đúng ngày giờ diễn ra,
   // còn cuộc họp chưa tới ngày sẽ hiển thị "Sắp diễn ra".
+  //
+  // Riêng cuộc họp NHÁP (DRAFT): RLS chỉ trả về những cuộc họp nháp mà user hiện tại
+  // được thấy (phòng chủ trì / người tạo / ADMIN-BGD) — các phòng "được tham gia" khác
+  // sẽ KHÔNG thấy cho tới khi cuộc họp được bấm "Duyệt tạo cuộc họp" (chuyển sang OPEN).
+  const drafts = list
+    .filter((m) => m.status === 'DRAFT')
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const ongoing = list.filter((m) => getMeetingDisplayStatus(m, now).key === 'LIVE');
   const upcoming = list
     .filter((m) => getMeetingDisplayStatus(m, now).key === 'UPCOMING')
@@ -69,13 +76,24 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <KpiCard icon="📝" tint="bg-paper2" num={drafts.length} label="Nháp chờ duyệt" />
         <KpiCard icon="🔴" tint="bg-red-soft" num={ongoing.length} label="Đang diễn ra" />
         <KpiCard icon="📅" tint="bg-green-soft" num={upcoming.length} label="Sắp diễn ra" />
         <KpiCard icon="✅" tint="bg-slate-soft" num={justEnded.length} label="Vừa kết thúc" />
         <KpiCard icon="📎" tint="bg-gold-soft" num={totalDocs} label="Tài liệu trong hạn" />
       </div>
 
+      {drafts.length > 0 && (
+        <Section
+          title="Nháp — chờ duyệt"
+          dotColor="bg-line"
+          items={drafts}
+          empty=""
+          docCountByMeeting={docCountByMeeting}
+          hint='Chỉ phòng chủ trì / người tạo nhìn thấy. Vào chi tiết để sửa, xoá nội dung và bấm "Duyệt tạo cuộc họp" khi hoàn tất — lúc đó các phòng được phân quyền mới nhìn thấy.'
+        />
+      )}
       <Section
         title="Đang diễn ra"
         dotColor="bg-red"
@@ -135,7 +153,8 @@ function Section({
   items,
   empty,
   emptyIcon,
-  docCountByMeeting
+  docCountByMeeting,
+  hint
 }: {
   title: string;
   dotColor: string;
@@ -143,6 +162,7 @@ function Section({
   empty: string;
   emptyIcon?: string;
   docCountByMeeting: Record<string, number>;
+  hint?: string;
 }) {
   return (
     <section>
@@ -155,6 +175,8 @@ function Section({
           {items.length}
         </span>
       </div>
+
+      {hint && <p className="mb-2.5 text-[11px] leading-relaxed text-inksoft">{hint}</p>}
 
       {items.length === 0 ? (
         <div className="flex items-center gap-3 rounded-xl2 border border-dashed border-line bg-white/50 p-4">

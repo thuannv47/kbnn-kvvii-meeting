@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Meeting, MeetingDepartment } from '@/types/meeting';
-import type { Department } from '@/types/user';
+import type { Department, Profile } from '@/types/user';
+import { isAdmin } from '@/lib/permissions';
 import {
   updateMeetingDepartmentsAction,
   updateMeetingStatusAction,
@@ -15,15 +16,18 @@ export default function TabInfo({
   perms,
   allDepartments,
   canManage,
-  canDelete
+  canDelete,
+  profile
 }: {
   meeting: Meeting;
   perms: MeetingDepartment[];
   allDepartments: Department[];
   canManage: boolean;
   canDelete: boolean;
+  profile?: Profile;
 }) {
   const router = useRouter();
+  const admin = isAdmin(profile);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
   const [rows, setRows] = useState(
@@ -42,6 +46,24 @@ export default function TabInfo({
 
   function toggle(id: string, field: 'can_view' | 'can_comment') {
     setRows((prev) => prev.map((r) => (r.department_id === id ? { ...r, [field]: !r[field] } : r)));
+  }
+
+  // true nếu TẤT CẢ các phòng đều đã bật field này -> dùng để hiển thị trạng thái checkbox "chọn tất cả"
+  const allViewChecked = rows.length > 0 && rows.every((r) => r.can_view);
+  const allCommentChecked = rows.length > 0 && rows.every((r) => r.can_comment);
+  const allChecked = allViewChecked && allCommentChecked;
+
+  function toggleAll(field: 'can_view' | 'can_comment') {
+    const next = !rows.every((r) => r[field]);
+    setRows((prev) => prev.map((r) => ({ ...r, [field]: next })));
+  }
+
+  function selectAllRooms() {
+    setRows((prev) => prev.map((r) => ({ ...r, can_view: true, can_comment: true })));
+  }
+
+  function clearAllRooms() {
+    setRows((prev) => prev.map((r) => ({ ...r, can_view: false, can_comment: false })));
   }
 
   function save() {
@@ -63,6 +85,24 @@ export default function TabInfo({
     startTransition(async () => {
       await updateMeetingStatusAction(meeting.id, status);
     });
+  }
+
+  function handleApprove() {
+    if (
+      !confirm(
+        'Duyệt tạo cuộc họp?\n\n' +
+          'Sau khi duyệt, các phòng được phân quyền ở mục "Phân quyền phòng tham gia" bên dưới sẽ ' +
+          'bắt đầu nhìn thấy cuộc họp này trên Dashboard và có thể xem/góp ý theo đúng quyền đã chọn. ' +
+          'Hãy kiểm tra lại nội dung và phân quyền trước khi duyệt.'
+      )
+    )
+      return;
+    changeStatus('OPEN');
+  }
+
+  function handleClose() {
+    if (!confirm('Đóng cuộc họp này? Sẽ không nhận thêm ý kiến/tài liệu mới sau khi đóng.')) return;
+    changeStatus('CLOSED');
   }
 
   function handleCancel() {
@@ -111,24 +151,62 @@ export default function TabInfo({
       {canManage && (
         <div className="card p-4">
           <h3 className="font-semibold mb-3">Trạng thái cuộc họp</h3>
-          <div className="flex gap-2 flex-wrap">
-            {(['DRAFT', 'OPEN', 'CLOSED', 'ARCHIVED'] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => changeStatus(s)}
-                disabled={isPending}
-                className={`btn ${meeting.status === s ? 'border-gold text-gold' : ''}`}
-              >
-                {s}
+
+          {meeting.status === 'DRAFT' ? (
+            <>
+              <p className="text-sm text-inksoft mb-3">
+                Cuộc họp đang ở trạng thái <b>Nháp</b> — chỉ phòng chủ trì / người tạo nhìn thấy. Bạn có
+                thể chỉnh sửa, xoá tài liệu/ý kiến và điều chỉnh phân quyền phòng tham gia bên dưới thoải
+                mái. Khi nội dung đã hoàn tất, bấm nút dưới đây để mở cho các phòng khác.
+              </p>
+              <button onClick={handleApprove} disabled={isPending} className="btn-primary">
+                ✅ Duyệt tạo cuộc họp
               </button>
-            ))}
-          </div>
-          <button onClick={handleCancel} disabled={isPending} className="btn mt-3">
-            Huỷ cuộc họp
-          </button>
-          <p className="text-xs text-inksoft mt-1.5">
-            Chuyển trạng thái sang "Lưu trữ" — dừng hiệu lực nhưng vẫn giữ nguyên dữ liệu và lịch sử.
-          </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-inksoft mb-3">
+                Trạng thái hiện tại: <b>{meeting.status}</b>. Các phòng được phân quyền ở mục bên dưới đã
+                có thể nhìn thấy cuộc họp này.
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                {meeting.status === 'OPEN' && (
+                  <button onClick={handleClose} disabled={isPending} className="btn">
+                    Đóng cuộc họp
+                  </button>
+                )}
+                {meeting.status !== 'ARCHIVED' && (
+                  <button onClick={handleCancel} disabled={isPending} className="btn">
+                    Huỷ cuộc họp
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-inksoft mt-1.5">
+                "Huỷ cuộc họp" chuyển trạng thái sang "Lưu trữ" — dừng hiệu lực nhưng vẫn giữ nguyên dữ
+                liệu và lịch sử.
+              </p>
+            </>
+          )}
+
+          {admin && (
+            <details className="mt-3.5">
+              <summary className="text-xs text-inksoft cursor-pointer select-none">
+                Nâng cao (Quản trị viên) — chuyển trực tiếp sang bất kỳ trạng thái nào
+              </summary>
+              <div className="flex gap-2 flex-wrap mt-2">
+                {(['DRAFT', 'OPEN', 'CLOSED', 'ARCHIVED'] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => changeStatus(s)}
+                    disabled={isPending}
+                    className={`btn ${meeting.status === s ? 'border-gold text-gold' : ''}`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       )}
 
@@ -150,16 +228,41 @@ export default function TabInfo({
       {canManage && (
         <div className="card p-4">
           <h3 className="font-semibold mb-3">Phân quyền phòng tham gia</h3>
+
+          <div className="flex items-center justify-between text-sm py-1.5 border-b border-line mb-1">
+            <label className="flex items-center gap-2 font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allChecked}
+                ref={(el) => {
+                  if (el) el.indeterminate = !allChecked && (allViewChecked || allCommentChecked || rows.some((r) => r.can_view || r.can_comment));
+                }}
+                onChange={() => (allChecked ? clearAllRooms() : selectAllRooms())}
+              />
+              Chọn tất cả các phòng
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={allViewChecked} onChange={() => toggleAll('can_view')} />
+                Xem
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={allCommentChecked} onChange={() => toggleAll('can_comment')} />
+                Ý kiến
+              </label>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             {rows.map((r) => (
               <div key={r.department_id} className="flex items-center justify-between text-sm py-1.5 border-b border-line last:border-0">
                 <span>{r.name}</span>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-1.5">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
                     <input type="checkbox" checked={r.can_view} onChange={() => toggle(r.department_id, 'can_view')} />
                     Xem
                   </label>
-                  <label className="flex items-center gap-1.5">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
                     <input type="checkbox" checked={r.can_comment} onChange={() => toggle(r.department_id, 'can_comment')} />
                     Ý kiến
                   </label>
