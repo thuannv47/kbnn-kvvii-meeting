@@ -42,6 +42,14 @@ export function canHostDepartment(u: Profile | null | undefined, departmentId: s
   return !!u.department_id && u.department_id === departmentId;
 }
 
+/**
+ * QUAN TRỌNG: khi cuộc họp còn ở trạng thái NHÁP (DRAFT), chỉ phòng chủ trì,
+ * người tạo, hoặc ADMIN/BGD mới thấy được — các phòng đã được tích "Xem"/"Ý kiến"
+ * trong meeting_departments (perms) CHƯA được thấy cho tới khi cuộc họp được
+ * Duyệt (chuyển sang OPEN). Quy tắc này phải khớp với can_view_meeting()/
+ * can_comment_meeting() ở supabase/migrations/0006_draft_hidden_until_approved.sql
+ * — đây chỉ là lớp kiểm tra phụ ở UI, lớp chặn thật sự vẫn là RLS.
+ */
 export function canViewMeeting(
   meeting: Meeting,
   perms: MeetingDepartment[],
@@ -50,6 +58,8 @@ export function canViewMeeting(
   if (!u) return false;
   if (isBGD(u)) return true;
   if (meeting.host_department_id === u.department_id) return true;
+  if (meeting.created_by === u.id) return true;
+  if (meeting.status === 'DRAFT') return false;
   return perms.some((p) => p.department_id === u.department_id && p.can_view);
 }
 
@@ -61,6 +71,8 @@ export function canCommentMeeting(
   if (!u) return false;
   if (isBGD(u)) return true;
   if (meeting.host_department_id === u.department_id) return true;
+  if (meeting.created_by === u.id) return true;
+  if (meeting.status === 'DRAFT') return false;
   return perms.some((p) => p.department_id === u.department_id && p.can_comment);
 }
 

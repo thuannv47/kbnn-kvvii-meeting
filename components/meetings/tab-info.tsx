@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Meeting, MeetingDepartment } from '@/types/meeting';
-import type { Department, Profile } from '@/types/user';
-import { isAdmin } from '@/lib/permissions';
+import type { Department } from '@/types/user';
 import {
   updateMeetingDepartmentsAction,
   updateMeetingStatusAction,
@@ -16,18 +15,15 @@ export default function TabInfo({
   perms,
   allDepartments,
   canManage,
-  canDelete,
-  profile
+  canDelete
 }: {
   meeting: Meeting;
   perms: MeetingDepartment[];
   allDepartments: Department[];
   canManage: boolean;
   canDelete: boolean;
-  profile?: Profile;
 }) {
   const router = useRouter();
-  const admin = isAdmin(profile);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, startDeleteTransition] = useTransition();
   const [rows, setRows] = useState(
@@ -43,27 +39,24 @@ export default function TabInfo({
   );
   const [isPending, startTransition] = useTransition();
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [approveMsg, setApproveMsg] = useState<string | null>(null);
+  const [isApproving, startApproveTransition] = useTransition();
+  const [isCancelling, startCancelTransition] = useTransition();
 
   function toggle(id: string, field: 'can_view' | 'can_comment') {
     setRows((prev) => prev.map((r) => (r.department_id === id ? { ...r, [field]: !r[field] } : r)));
   }
 
-  // true nếu TẤT CẢ các phòng đều đã bật field này -> dùng để hiển thị trạng thái checkbox "chọn tất cả"
+  // "Chọn tất cả" theo từng cột (Xem / Ý kiến) — bấm 1 lần để bật hết, bấm lại để tắt hết.
+  // Ô đầu bảng tự chuyển sang trạng thái "chưa xác định" (indeterminate) khi chỉ một phần được chọn.
   const allViewChecked = rows.length > 0 && rows.every((r) => r.can_view);
   const allCommentChecked = rows.length > 0 && rows.every((r) => r.can_comment);
-  const allChecked = allViewChecked && allCommentChecked;
+  const someViewChecked = rows.some((r) => r.can_view);
+  const someCommentChecked = rows.some((r) => r.can_comment);
 
   function toggleAll(field: 'can_view' | 'can_comment') {
-    const next = !rows.every((r) => r[field]);
+    const next = field === 'can_view' ? !allViewChecked : !allCommentChecked;
     setRows((prev) => prev.map((r) => ({ ...r, [field]: next })));
-  }
-
-  function selectAllRooms() {
-    setRows((prev) => prev.map((r) => ({ ...r, can_view: true, can_comment: true })));
-  }
-
-  function clearAllRooms() {
-    setRows((prev) => prev.map((r) => ({ ...r, can_view: false, can_comment: false })));
   }
 
   function save() {
@@ -81,33 +74,20 @@ export default function TabInfo({
     });
   }
 
-  function changeStatus(status: 'DRAFT' | 'OPEN' | 'CLOSED' | 'ARCHIVED') {
-    startTransition(async () => {
-      await updateMeetingStatusAction(meeting.id, status);
+  // Duyệt: chuyển Nháp -> Mở, để các phòng ban được phân quyền bắt đầu nhìn thấy cuộc họp.
+  function handleApprove() {
+    setApproveMsg(null);
+    startApproveTransition(async () => {
+      const res = await updateMeetingStatusAction(meeting.id, 'OPEN');
+      if (res?.error) setApproveMsg(res.error);
     });
   }
 
-  function handleApprove() {
-    if (
-      !confirm(
-        'Duyệt tạo cuộc họp?\n\n' +
-          'Sau khi duyệt, các phòng được phân quyền ở mục "Phân quyền phòng tham gia" bên dưới sẽ ' +
-          'bắt đầu nhìn thấy cuộc họp này trên Dashboard và có thể xem/góp ý theo đúng quyền đã chọn. ' +
-          'Hãy kiểm tra lại nội dung và phân quyền trước khi duyệt.'
-      )
-    )
-      return;
-    changeStatus('OPEN');
-  }
-
-  function handleClose() {
-    if (!confirm('Đóng cuộc họp này? Sẽ không nhận thêm ý kiến/tài liệu mới sau khi đóng.')) return;
-    changeStatus('CLOSED');
-  }
-
+  // Huỷ sớm (ngoại lệ): dùng khi cuộc họp bị huỷ TRƯỚC/TRONG khi diễn ra — khác với việc
+  // hệ thống tự động chuyển "Đã đóng" 48h SAU khi cuộc họp kết thúc (không cần bấm tay).
   function handleCancel() {
     if (!confirm('Huỷ cuộc họp này? Trạng thái sẽ chuyển sang "Lưu trữ", dữ liệu vẫn được giữ lại.')) return;
-    startTransition(async () => {
+    startCancelTransition(async () => {
       await updateMeetingStatusAction(meeting.id, 'ARCHIVED');
     });
   }
@@ -132,6 +112,8 @@ export default function TabInfo({
     });
   }
 
+  const canCancel = canManage && (meeting.status === 'OPEN' || meeting.status === 'DRAFT');
+
   return (
     <div className="space-y-5">
       <div className="card p-4">
@@ -143,69 +125,51 @@ export default function TabInfo({
         <h3 className="font-semibold mb-2">Hiển thị</h3>
         <p className="text-sm text-inksoft">
           {meeting.visible_until
-            ? `Tự ẩn khỏi Dashboard sau ${new Date(meeting.visible_until).toLocaleString('vi-VN')} (dữ liệu vẫn giữ nguyên, tìm được qua Tìm kiếm).`
+            ? `Tự ẩn khỏi Trang chủ sau ${new Date(meeting.visible_until).toLocaleString('vi-VN')} (dữ liệu vẫn giữ nguyên, tìm được qua Tìm kiếm).`
             : 'Không giới hạn thời gian hiển thị.'}
         </p>
       </div>
 
-      {canManage && (
+      {/* Nháp -> Duyệt: chỉ 1 bước duyệt duy nhất, không có nút "Đóng"/"Lưu trữ" thủ công —
+          hệ thống tự chuyển "Đã đóng" 48 giờ sau khi cuộc họp kết thúc (xem cron auto-close-meetings). */}
+      {canManage && meeting.status === 'DRAFT' && (
+        <div className="card p-4 border-gold/40">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="badge-draft">📝 Nháp</span>
+            <h3 className="font-semibold">Cuộc họp đang ở dạng Nháp</h3>
+          </div>
+          <p className="text-sm text-inksoft mb-3">
+            Hiện chỉ mình bạn thấy được cuộc họp này. Kiểm tra lại thông tin và{' '}
+            <span className="font-medium text-ink">Phân quyền phòng tham gia</span> bên dưới, sau đó bấm
+            "Duyệt tạo cuộc họp" để các phòng ban được phân quyền bắt đầu nhìn thấy.
+          </p>
+          <button onClick={handleApprove} disabled={isApproving} className="btn-primary">
+            {isApproving && <span className="spinner" />}
+            {isApproving ? 'Đang duyệt…' : '✅ Duyệt tạo cuộc họp'}
+          </button>
+          {approveMsg && <p className="text-sm text-red mt-2">{approveMsg}</p>}
+        </div>
+      )}
+
+      {canManage && meeting.status !== 'DRAFT' && (
         <div className="card p-4">
-          <h3 className="font-semibold mb-3">Trạng thái cuộc họp</h3>
-
-          {meeting.status === 'DRAFT' ? (
+          <h3 className="font-semibold mb-2">Trạng thái cuộc họp</h3>
+          <p className="text-sm text-inksoft">
+            Cuộc họp đã được duyệt và các phòng ban được phân quyền có thể xem. Hệ thống sẽ{' '}
+            <span className="font-medium text-ink">tự động chuyển sang "Đã đóng"</span> 48 giờ sau khi cuộc
+            họp kết thúc — không cần thao tác thủ công.
+          </p>
+          {canCancel && (
             <>
-              <p className="text-sm text-inksoft mb-3">
-                Cuộc họp đang ở trạng thái <b>Nháp</b> — chỉ phòng chủ trì / người tạo nhìn thấy. Bạn có
-                thể chỉnh sửa, xoá tài liệu/ý kiến và điều chỉnh phân quyền phòng tham gia bên dưới thoải
-                mái. Khi nội dung đã hoàn tất, bấm nút dưới đây để mở cho các phòng khác.
-              </p>
-              <button onClick={handleApprove} disabled={isPending} className="btn-primary">
-                ✅ Duyệt tạo cuộc họp
+              <button onClick={handleCancel} disabled={isCancelling} className="btn mt-3 text-red border-red/30">
+                {isCancelling && <span className="spinner" />}
+                {isCancelling ? 'Đang huỷ…' : 'Huỷ cuộc họp'}
               </button>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-inksoft mb-3">
-                Trạng thái hiện tại: <b>{meeting.status}</b>. Các phòng được phân quyền ở mục bên dưới đã
-                có thể nhìn thấy cuộc họp này.
-              </p>
-              <div className="flex gap-2 flex-wrap">
-                {meeting.status === 'OPEN' && (
-                  <button onClick={handleClose} disabled={isPending} className="btn">
-                    Đóng cuộc họp
-                  </button>
-                )}
-                {meeting.status !== 'ARCHIVED' && (
-                  <button onClick={handleCancel} disabled={isPending} className="btn">
-                    Huỷ cuộc họp
-                  </button>
-                )}
-              </div>
               <p className="text-xs text-inksoft mt-1.5">
-                "Huỷ cuộc họp" chuyển trạng thái sang "Lưu trữ" — dừng hiệu lực nhưng vẫn giữ nguyên dữ
-                liệu và lịch sử.
+                Chỉ dùng khi cuộc họp bị huỷ trước hoặc trong lúc diễn ra (VD: hoãn đột xuất) — khác với việc
+                tự động đóng sau khi kết thúc ở trên.
               </p>
             </>
-          )}
-
-          {admin && (
-            <details className="mt-3.5">
-              <summary className="text-xs text-inksoft cursor-pointer select-none">
-                Nâng cao (Quản trị viên) — chuyển trực tiếp sang bất kỳ trạng thái nào
-              </summary>
-              <div className="flex gap-2 flex-wrap mt-2">
-                {(['DRAFT', 'OPEN', 'CLOSED', 'ARCHIVED'] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => changeStatus(s)}
-                    disabled={isPending}
-                    className={`btn ${meeting.status === s ? 'border-gold text-gold' : ''}`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </details>
           )}
         </div>
       )}
@@ -229,25 +193,30 @@ export default function TabInfo({
         <div className="card p-4">
           <h3 className="font-semibold mb-3">Phân quyền phòng tham gia</h3>
 
-          <div className="flex items-center justify-between text-sm py-1.5 border-b border-line mb-1">
-            <label className="flex items-center gap-2 font-medium cursor-pointer">
-              <input
-                type="checkbox"
-                checked={allChecked}
-                ref={(el) => {
-                  if (el) el.indeterminate = !allChecked && (allViewChecked || allCommentChecked || rows.some((r) => r.can_view || r.can_comment));
-                }}
-                onChange={() => (allChecked ? clearAllRooms() : selectAllRooms())}
-              />
-              Chọn tất cả các phòng
-            </label>
+          {/* Hàng tiêu đề: chọn tất cả / bỏ chọn tất cả theo từng cột */}
+          <div className="flex items-center justify-between text-xs font-semibold text-inksoft py-1.5 border-b border-line">
+            <span>Chọn tất cả</span>
             <div className="flex gap-4">
               <label className="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" checked={allViewChecked} onChange={() => toggleAll('can_view')} />
+                <input
+                  type="checkbox"
+                  checked={allViewChecked}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someViewChecked && !allViewChecked;
+                  }}
+                  onChange={() => toggleAll('can_view')}
+                />
                 Xem
               </label>
               <label className="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" checked={allCommentChecked} onChange={() => toggleAll('can_comment')} />
+                <input
+                  type="checkbox"
+                  checked={allCommentChecked}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someCommentChecked && !allCommentChecked;
+                  }}
+                  onChange={() => toggleAll('can_comment')}
+                />
                 Ý kiến
               </label>
             </div>
@@ -258,11 +227,11 @@ export default function TabInfo({
               <div key={r.department_id} className="flex items-center justify-between text-sm py-1.5 border-b border-line last:border-0">
                 <span>{r.name}</span>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
+                  <label className="flex items-center gap-1.5">
                     <input type="checkbox" checked={r.can_view} onChange={() => toggle(r.department_id, 'can_view')} />
                     Xem
                   </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
+                  <label className="flex items-center gap-1.5">
                     <input type="checkbox" checked={r.can_comment} onChange={() => toggle(r.department_id, 'can_comment')} />
                     Ý kiến
                   </label>
@@ -271,7 +240,8 @@ export default function TabInfo({
             ))}
           </div>
           <button onClick={save} disabled={isPending} className="btn-primary mt-3">
-            Lưu phân quyền
+            {isPending && <span className="spinner" />}
+            {isPending ? 'Đang lưu…' : 'Lưu phân quyền'}
           </button>
           {savedMsg && <p className="text-sm text-inksoft mt-2">{savedMsg}</p>}
         </div>

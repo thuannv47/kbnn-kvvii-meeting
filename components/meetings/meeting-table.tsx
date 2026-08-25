@@ -14,9 +14,9 @@ function fmtTime(iso: string) {
   return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
-// Thứ tự ưu tiên hiển thị khi gộp chung 1 bảng: đang diễn ra lên đầu,
-// rồi sắp diễn ra, rồi vừa kết thúc.
-const STATUS_ORDER: Record<string, number> = { LIVE: 0, UPCOMING: 1, DONE: 2, DRAFT: 3 };
+// Thứ tự ưu tiên hiển thị khi gộp chung 1 bảng: Nháp cần xử lý nên đưa lên đầu,
+// rồi đang diễn ra, rồi sắp diễn ra, rồi vừa kết thúc.
+const STATUS_ORDER: Record<string, number> = { DRAFT: 0, LIVE: 1, UPCOMING: 2, DONE: 3 };
 const ROW_ACCENT: Record<string, string> = {
   LIVE: 'before:bg-red',
   UPCOMING: 'before:bg-green',
