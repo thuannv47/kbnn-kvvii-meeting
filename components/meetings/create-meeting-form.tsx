@@ -126,7 +126,10 @@ export default function CreateMeetingForm({
         start_at: String(formData.get('start_at') || ''),
         end_at: String(formData.get('end_at') || ''),
         visibility_duration_hours: visRaw === '' ? null : Number(visRaw),
-        participant_department_ids: selectedDepts,
+        // Họp Ngoài ngành không dùng phân quyền theo phòng ban — quyền xem hoàn
+        // toàn dựa vào người được tag (participant_user_ids), nên không ghi
+        // meeting_departments cho loại này để tránh dữ liệu vô nghĩa.
+        participant_department_ids: meetingType === 'EXTERNAL' ? [] : selectedDepts,
         participant_user_ids: meetingType === 'EXTERNAL' ? selectedParticipants : [],
         status: 'DRAFT'
       });
@@ -183,231 +186,273 @@ export default function CreateMeetingForm({
   }
 
   return (
-    <form className="card p-5 space-y-4" action={submit}>
-      <div>
-        <label className="text-sm font-medium block mb-1">Tiêu đề *</label>
-        <input name="title" required className="input" placeholder="VD: Họp giao ban khu vực tháng 8/2026" />
-      </div>
-      <div>
-        <label className="text-sm font-medium block mb-1">Tóm tắt *</label>
-        <textarea name="summary" required rows={3} className="input" />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium block mb-2">Loại cuộc họp *</label>
-        <div className="grid grid-cols-2 gap-2">
-          <label
-            className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm cursor-pointer ${
-              meetingType === 'INTERNAL' ? 'border-gold bg-gold/5' : 'border-line'
-            }`}
-          >
-            <input
-              type="radio"
-              name="meeting_type_radio"
-              className="mt-0.5"
-              checked={meetingType === 'INTERNAL'}
-              onChange={() => setMeetingType('INTERNAL')}
-            />
-            <span>
-              <span className="font-medium block">Nội bộ</span>
-              <span className="text-xs text-inksoft">Do phòng ban trong hệ thống tổ chức, như hiện tại.</span>
-            </span>
-          </label>
-          <label
-            className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm cursor-pointer ${
-              meetingType === 'EXTERNAL' ? 'border-gold bg-gold/5' : 'border-line'
-            }`}
-          >
-            <input
-              type="radio"
-              name="meeting_type_radio"
-              className="mt-0.5"
-              checked={meetingType === 'EXTERNAL'}
-              onChange={() => setMeetingType('EXTERNAL')}
-            />
-            <span>
-              <span className="font-medium block">Ngoài ngành</span>
-              <span className="text-xs text-inksoft">Họp bên ngoài — nhập địa điểm và cử người đi tham dự.</span>
-            </span>
-          </label>
-        </div>
-      </div>
-
-      {meetingType === 'EXTERNAL' && (
-        <div className="space-y-4 rounded-lg border border-gold/30 bg-gold/5 p-4">
-          <div>
-            <label className="text-sm font-medium block mb-1">Địa điểm *</label>
-            <input
-              name="location"
-              required
-              className="input"
-              placeholder="VD: UBND Tỉnh, Phòng họp A tầng 3, hoặc link Zoom/Meet"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium block mb-1">Tệp đính kèm (giấy mời, quyết định cử đi…)</label>
-            <input
-              type="file"
-              className="input"
-              onChange={(e) => setInvitationFile(e.target.files?.[0] ?? null)}
-            />
-            <p className="text-xs text-inksoft mt-1">
-              Không bắt buộc — nếu chưa có file, người được cử đi vẫn tải tài liệu lên cuộc họp sau khi đi họp
-              về, ở tab "Tài liệu".
-            </p>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium block mb-2">Người được cử đi tham dự *</label>
-
-            {selectedUserObjs.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {selectedUserObjs.map((u) => (
-                  <span
-                    key={u.id}
-                    className="inline-flex items-center gap-1 rounded-full bg-ink text-white text-xs px-2.5 py-1"
-                  >
-                    {u.full_name}
-                    <button
-                      type="button"
-                      onClick={() => toggleParticipant(u.id)}
-                      className="ml-0.5 opacity-70 hover:opacity-100"
-                      aria-label={`Bỏ chọn ${u.full_name}`}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {users.length === 0 ? (
-              <p className="text-xs text-inksoft">Không có người dùng nào để chọn.</p>
-            ) : (
-              <>
-                <input
-                  type="text"
-                  value={participantSearch}
-                  onChange={(e) => setParticipantSearch(e.target.value)}
-                  placeholder="Tìm theo tên, chức danh hoặc phòng ban…"
-                  className="input mb-2"
-                />
-                <div className="max-h-52 overflow-y-auto rounded border border-line bg-surface divide-y divide-line">
-                  {filteredUsers.length === 0 && (
-                    <p className="text-xs text-inksoft px-3 py-2">Không tìm thấy ai khớp "{participantSearch}".</p>
-                  )}
-                  {filteredUsers.map((u) => (
-                    <label key={u.id} className="flex items-center gap-2 text-sm px-3 py-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedParticipants.includes(u.id)}
-                        onChange={() => toggleParticipant(u.id)}
-                      />
-                      <span>
-                        {u.full_name}
-                        <span className="text-inksoft">
-                          {' '}
-                          — {u.position || 'Chưa có chức danh'}
-                          {u.departments?.name ? ` · ${u.departments.name}` : ''}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
-            <p className="text-xs text-inksoft mt-1">
-              Người được chọn sẽ thấy được cuộc họp này ngay (kể cả khi còn ở dạng Nháp) và có thể tải tài
-              liệu lên để báo cáo lại.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {meetingType === 'INTERNAL' && (
-        <div>
-          <label className="text-sm font-medium block mb-1">Phòng chủ trì *</label>
-          {canPickAnyDepartment ? (
-            <select name="host_department_id" required defaultValue={defaultDepartmentId} className="input">
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <>
-              {/* Nhân viên/Trưởng phòng chỉ được tạo họp do chính phòng mình chủ trì */}
-              <input
-                className="input bg-line/40 cursor-not-allowed"
-                value={departments.find((d) => d.id === defaultDepartmentId)?.name ?? ''}
-                disabled
-                readOnly
-              />
-              <input type="hidden" name="host_department_id" value={defaultDepartmentId} />
-            </>
-          )}
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-sm font-medium block mb-1">Thời gian bắt đầu *</label>
-          <input name="start_at" type="datetime-local" required className="input" />
-        </div>
-        <div>
-          <label className="text-sm font-medium block mb-1">Thời gian kết thúc *</label>
-          <input name="end_at" type="datetime-local" required className="input" />
-        </div>
-      </div>
-      <div>
-        <label className="text-sm font-medium block mb-1">Thời gian hiển thị sau kết thúc</label>
-        <select name="visibility_duration_hours" defaultValue={48} className="input">
-          {VISIBILITY_OPTIONS.map((o) => (
-            <option key={o.label} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <p className="text-xs text-inksoft mt-1">
-          Sau mốc thời gian này kể từ lúc kết thúc, cuộc họp tự ẩn khỏi Trang chủ và chuyển "Đã đóng"
-          (vẫn tìm được ở Tìm kiếm) — không cần đóng/lưu trữ thủ công.
-        </p>
-      </div>
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium">Phòng được tham gia</label>
-          <button type="button" onClick={toggleAll} className="text-xs text-gold underline">
-            {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-          </button>
-        </div>
-        <div className="grid grid-cols-2 gap-1.5">
-          {departments.map((d) => (
-            <label key={d.id} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={selectedDepts.includes(d.id)}
-                onChange={() => toggleDept(d.id)}
-              />
-              {d.name}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {error && <p className="text-red text-sm">{error}</p>}
-
-      <div className="flex gap-2 pt-2">
-        <button type="submit" disabled={isPending} className="btn-primary">
-          {isPending && <span className="spinner" />}
-          {isPending ? 'Đang tạo…' : 'Tạo cuộc họp (Nháp)'}
+    <form className="card p-0 overflow-hidden" action={submit}>
+      {/* ---- TAB SWITCHER: 2 tab thật sự, không phải 2 thẻ radio nhỏ ---- */}
+      <div className="grid grid-cols-2 border-b border-line">
+        <button
+          type="button"
+          onClick={() => setMeetingType('INTERNAL')}
+          className={`px-4 py-3.5 text-sm font-semibold text-center transition-colors ${
+            meetingType === 'INTERNAL'
+              ? 'bg-surface text-ink border-b-2 border-gold -mb-px'
+              : 'bg-paper2/60 text-inksoft hover:text-ink'
+          }`}
+        >
+          Họp nội bộ
+          <span className="block text-xs font-normal mt-0.5 text-inksoft">
+            Do phòng ban trong hệ thống tổ chức
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMeetingType('EXTERNAL')}
+          className={`px-4 py-3.5 text-sm font-semibold text-center transition-colors ${
+            meetingType === 'EXTERNAL'
+              ? 'bg-surface text-ink border-b-2 border-gold -mb-px'
+              : 'bg-paper2/60 text-inksoft hover:text-ink'
+          }`}
+        >
+          Họp ngoài ngành
+          <span className="block text-xs font-normal mt-0.5 text-inksoft">
+            Họp bên ngoài — có địa điểm và người cử đi
+          </span>
         </button>
       </div>
-      <p className="text-xs text-inksoft">
-        Cuộc họp sẽ được tạo ở dạng <span className="font-medium text-ink">Nháp</span> — chỉ mình bạn (và
-        người được cử đi, nếu có) thấy được. Vào chi tiết cuộc họp sau khi tạo để bấm "Duyệt tạo cuộc họp"
-        khi sẵn sàng cho các phòng ban được phân quyền xem.
-      </p>
+
+      <div className="p-5 space-y-4">
+        <div>
+          <label className="text-sm font-medium block mb-1">Tiêu đề *</label>
+          <input name="title" required className="input" placeholder="VD: Họp giao ban khu vực tháng 8/2026" />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium block mb-1">
+            Tóm tắt {meetingType === 'INTERNAL' ? '*' : '(nếu có)'}
+          </label>
+          <textarea name="summary" required={meetingType === 'INTERNAL'} rows={3} className="input" />
+        </div>
+
+        {meetingType === 'INTERNAL' ? (
+          <>
+            <div>
+              <label className="text-sm font-medium block mb-1">Phòng chủ trì *</label>
+              {canPickAnyDepartment ? (
+                <select name="host_department_id" required defaultValue={defaultDepartmentId} className="input">
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <>
+                  {/* Nhân viên/Trưởng phòng chỉ được tạo họp do chính phòng mình chủ trì */}
+                  <input
+                    className="input bg-line/40 cursor-not-allowed"
+                    value={departments.find((d) => d.id === defaultDepartmentId)?.name ?? ''}
+                    disabled
+                    readOnly
+                  />
+                  <input type="hidden" name="host_department_id" value={defaultDepartmentId} />
+                </>
+              )}
+            </div>
+
+            {/* Xếp dọc (1 cột) trên mobile để ô datetime-local có đủ chỗ hiển thị
+                ngày + giờ + icon lịch, tránh bị tràn khung; chỉ xếp ngang từ màn
+                hình sm trở lên. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="min-w-0">
+                <label className="text-sm font-medium block mb-1">Thời gian bắt đầu *</label>
+                <input
+                  name="start_at"
+                  type="datetime-local"
+                  required
+                  className="input w-full min-w-0 text-sm sm:text-base"
+                />
+              </div>
+              <div className="min-w-0">
+                <label className="text-sm font-medium block mb-1">Thời gian kết thúc *</label>
+                <input
+                  name="end_at"
+                  type="datetime-local"
+                  required
+                  className="input w-full min-w-0 text-sm sm:text-base"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-1">Thời gian hiển thị sau kết thúc</label>
+              <select name="visibility_duration_hours" defaultValue={48} className="input">
+                {VISIBILITY_OPTIONS.map((o) => (
+                  <option key={o.label} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-inksoft mt-1">
+                Sau mốc thời gian này kể từ lúc kết thúc, cuộc họp tự ẩn khỏi Trang chủ và chuyển "Đã đóng"
+                (vẫn tìm được ở Tìm kiếm) — không cần đóng/lưu trữ thủ công.
+              </p>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium">Phòng được tham gia</label>
+                <button type="button" onClick={toggleAll} className="text-xs text-gold underline">
+                  {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {departments.map((d) => (
+                  <label key={d.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedDepts.includes(d.id)}
+                      onChange={() => toggleDept(d.id)}
+                    />
+                    {d.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <label className="text-sm font-medium block mb-1">Địa điểm *</label>
+              <input
+                name="location"
+                required
+                className="input"
+                placeholder="VD: UBND Tỉnh, Phòng họp A tầng 3, hoặc link Zoom/Meet"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="min-w-0">
+                <label className="text-sm font-medium block mb-1">Thời gian bắt đầu *</label>
+                <input
+                  name="start_at"
+                  type="datetime-local"
+                  required
+                  className="input w-full min-w-0 text-sm sm:text-base"
+                />
+              </div>
+              <div className="min-w-0">
+                <label className="text-sm font-medium block mb-1">Thời gian kết thúc *</label>
+                <input
+                  name="end_at"
+                  type="datetime-local"
+                  required
+                  className="input w-full min-w-0 text-sm sm:text-base"
+                />
+              </div>
+            </div>
+
+            {/* Vẫn giữ mặc định 48h ngầm định (input ẩn) — không hỏi lại người
+                dùng ở tab này để đỡ rối, đúng theo yêu cầu chỉ giữ những
+                trường thật sự cần cho quy trình họp ngoài ngành. */}
+            <input type="hidden" name="visibility_duration_hours" value={48} />
+
+            <div>
+              <label className="text-sm font-medium block mb-1">Tệp đính kèm (giấy mời, quyết định cử đi…)</label>
+              <input
+                type="file"
+                className="input"
+                onChange={(e) => setInvitationFile(e.target.files?.[0] ?? null)}
+              />
+              <p className="text-xs text-inksoft mt-1">
+                Không bắt buộc — nếu chưa có file, người được cử đi vẫn tải tài liệu lên cuộc họp sau khi đi
+                họp về, ở tab "Tài liệu".
+              </p>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-2">Người tham gia dự họp *</label>
+
+              {selectedUserObjs.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {selectedUserObjs.map((u) => (
+                    <span
+                      key={u.id}
+                      className="inline-flex items-center gap-1 rounded-full bg-ink text-white text-xs px-2.5 py-1"
+                    >
+                      {u.full_name}
+                      <button
+                        type="button"
+                        onClick={() => toggleParticipant(u.id)}
+                        className="ml-0.5 opacity-70 hover:opacity-100"
+                        aria-label={`Bỏ chọn ${u.full_name}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {users.length === 0 ? (
+                <p className="text-xs text-inksoft">Không có người dùng nào để chọn.</p>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={participantSearch}
+                    onChange={(e) => setParticipantSearch(e.target.value)}
+                    placeholder="Tìm theo tên, chức danh hoặc phòng ban…"
+                    className="input mb-2"
+                  />
+                  <div className="max-h-52 overflow-y-auto rounded border border-line bg-surface divide-y divide-line">
+                    {filteredUsers.length === 0 && (
+                      <p className="text-xs text-inksoft px-3 py-2">
+                        Không tìm thấy ai khớp "{participantSearch}".
+                      </p>
+                    )}
+                    {filteredUsers.map((u) => (
+                      <label key={u.id} className="flex items-center gap-2 text-sm px-3 py-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedParticipants.includes(u.id)}
+                          onChange={() => toggleParticipant(u.id)}
+                        />
+                        <span>
+                          {u.full_name}
+                          <span className="text-inksoft">
+                            {' '}
+                            — {u.position || 'Chưa có chức danh'}
+                            {u.departments?.name ? ` · ${u.departments.name}` : ''}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+              <p className="text-xs text-inksoft mt-1">
+                Tag tên trưởng/phó phòng được cử đi cùng đoàn. Những người được tag vào sẽ nhìn thấy thông
+                báo để biết lịch họp (kể cả khi cuộc họp còn ở dạng Nháp) và có thể tải tài liệu lên báo cáo
+                lại sau khi đi họp về.
+              </p>
+            </div>
+          </>
+        )}
+
+        {error && <p className="text-red text-sm">{error}</p>}
+
+        <div className="flex gap-2 pt-2">
+          <button type="submit" disabled={isPending} className="btn-primary">
+            {isPending && <span className="spinner" />}
+            {isPending ? 'Đang tạo…' : 'Tạo cuộc họp (Nháp)'}
+          </button>
+        </div>
+        <p className="text-xs text-inksoft">
+          Cuộc họp sẽ được tạo ở dạng <span className="font-medium text-ink">Nháp</span> — chỉ mình bạn (và
+          người được cử đi, nếu có) thấy được. Vào chi tiết cuộc họp sau khi tạo để bấm "Duyệt tạo cuộc họp"
+          khi sẵn sàng cho các phòng ban được phân quyền xem.
+        </p>
+      </div>
     </form>
   );
 }

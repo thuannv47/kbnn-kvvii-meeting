@@ -63,9 +63,14 @@ export default function UserForm({ departments }: { departments: Department[] })
           <select name="role" required defaultValue="MEMBER" className="input">
             <option value="MEMBER">Chuyên viên (MEMBER)</option>
             <option value="MANAGER">Trưởng/Phó phòng (MANAGER)</option>
+            <option value="THUKY">Thư ký (THUKY)</option>
             <option value="BGD">Ban Giám đốc (BGD)</option>
             <option value="ADMIN">Quản trị hệ thống (ADMIN)</option>
           </select>
+          <p className="text-xs text-inksoft mt-1">
+            Chọn "Thư ký" và gán Phòng ban ở trên là "Ban Giám đốc" nếu muốn người này thay mặt BGD
+            tạo/sắp đặt/Duyệt cuộc họp — không có quyền giám sát toàn ngành như BGD thật sự.
+          </p>
         </div>
       </div>
       {error && <p className="text-red text-sm">{error}</p>}

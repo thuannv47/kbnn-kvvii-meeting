@@ -65,6 +65,7 @@ export default function UserEditDialog({
             <select name="role" required defaultValue={user.role} className="input">
               <option value="MEMBER">Chuyên viên (MEMBER)</option>
               <option value="MANAGER">Trưởng/Phó phòng (MANAGER)</option>
+              <option value="THUKY">Thư ký (THUKY)</option>
               <option value="BGD">Ban Giám đốc (BGD)</option>
               <option value="ADMIN">Quản trị hệ thống (ADMIN)</option>
             </select>

@@ -90,11 +90,26 @@ export function canCommentMeeting(
   return perms.some((p) => p.department_id === u.department_id && p.can_comment);
 }
 
+/**
+ * "Quản lý" cuộc họp (đổi trạng thái: Duyệt/Đóng/Huỷ, phân quyền phòng ban,
+ * soạn kết luận...):
+ * - ADMIN: luôn quản lý được mọi cuộc họp.
+ * - Người tạo: luôn quản lý được cuộc họp do chính mình tạo.
+ * - MANAGER/BGD của phòng chủ trì: quản lý được cuộc họp do phòng mình chủ trì.
+ * - THUKY (Thư ký) của phòng chủ trì: tương tự MANAGER/BGD — dùng khi thư ký
+ *   được giao đứng ra sắp đặt/Duyệt cuộc họp thay mặt phòng mình phụ trách
+ *   (thường là Ban Giám đốc), kể cả những cuộc họp không phải do chính thư ký
+ *   tạo. Thư ký KHÔNG có quyền giám sát toàn ngành như BGD thật sự — chỉ giới
+ *   hạn trong phạm vi phòng ban được gán (xem isBGD() không bao gồm THUKY).
+ */
 export function canManageMeeting(meeting: Meeting, u?: Profile | null) {
   if (!u) return false;
   if (isAdmin(u)) return true;
   if (meeting.created_by === u.id) return true; // người tạo luôn quản lý được cuộc họp của mình
-  return meeting.host_department_id === u.department_id && (u.role === 'MANAGER' || u.role === 'BGD');
+  return (
+    meeting.host_department_id === u.department_id &&
+    (u.role === 'MANAGER' || u.role === 'BGD' || u.role === 'THUKY')
+  );
 }
 
 /**

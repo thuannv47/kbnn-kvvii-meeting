@@ -74,33 +74,6 @@ export async function createMeetingAction(input: z.infer<typeof createMeetingSch
 
   const supabase = createServerSupabase();
 
-  // ---- DEBUG TẠM THỜI: kiểm tra session thực tế ngay trước khi insert ----
-  const { data: sessionCheck, error: sessionErr } = await supabase.auth.getUser();
-  if (!sessionCheck?.user) {
-    return {
-      error:
-        'DEBUG: Server Action KHÔNG nhận được session hợp lệ (auth.uid() sẽ là NULL). ' +
-        'sessionErr=' + (sessionErr?.message ?? 'không có user') +
-        '. Đây là nguyên nhân RLS chặn insert, không liên quan tới active/department.'
-    };
-  }
-  if (sessionCheck.user.id !== authId) {
-    return {
-      error: `DEBUG: session mismatch — requireUser()=${authId} nhưng auth.getUser() ngay trước insert=${sessionCheck.user.id}.`
-    };
-  }
-  // ---- HẾT DEBUG ----
-
-  // ---- DEBUG TẠM THỜI: hỏi thẳng Postgres auth.uid() nó thấy là gì (khác với
-  // supabase.auth.getUser() vốn chỉ giải mã JWT tại chỗ, không phản ánh đúng
-  // những gì PostgREST/Postgres thực sự dùng để chạy RLS) ----
-  const { data: whoami, error: whoamiErr } = await supabase.rpc('debug_whoami' as any);
-  const { data: checkDetail, error: checkErr } = await supabase.rpc(
-    'debug_meeting_insert_check' as any,
-    { p_host_dept: data.host_department_id }
-  );
-  // ---- HẾT DEBUG ----
-
   // Lớp phòng thủ 3: RLS sẽ tự chặn nếu policy meetings_insert không cho phép.
   //
   // QUAN TRỌNG: KHÔNG dùng .select().single() ngay sau insert() — Postgres coi
@@ -123,10 +96,7 @@ export async function createMeetingAction(input: z.infer<typeof createMeetingSch
   });
 
   if (error) {
-    const hint = error.message?.includes('row-level security')
-      ? ` (DEBUG detail=${JSON.stringify(checkDetail)}, checkErr=${checkErr?.message ?? 'none'})`
-      : '';
-    return { error: 'Không tạo được cuộc họp: ' + error.message + hint };
+    return { error: 'Không tạo được cuộc họp: ' + error.message };
   }
 
   const { data: meeting, error: fetchErr } = await supabase

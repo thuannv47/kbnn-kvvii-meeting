@@ -11,7 +11,8 @@ const roleLabel: Record<string, string> = {
   ADMIN: 'Quản trị hệ thống',
   BGD: 'Ban Giám đốc',
   MANAGER: 'Trưởng/Phó phòng',
-  MEMBER: 'Chuyên viên'
+  MEMBER: 'Chuyên viên',
+  THUKY: 'Thư ký'
 };
 
 export default function SidebarNav({
