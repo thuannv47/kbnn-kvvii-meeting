@@ -1,15 +1,21 @@
 export type MeetingStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'ARCHIVED';
+<<<<<<< HEAD
 export type MeetingType = 'INTERNAL' | 'EXTERNAL';
+=======
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
 
 export interface Meeting {
   id: string;
   code: string;
   title: string;
   summary: string | null;
+<<<<<<< HEAD
   /** Địa điểm diễn ra cuộc họp (VD: "UBND Tỉnh", "Phòng họp A, tầng 3", link Zoom/Meet…). Có thể để trống. */
   location: string | null;
   /** Nội bộ (do phòng ban trong hệ thống tổ chức) hay Ngoài ngành (họp bên ngoài, cử người đi tham dự). */
   meeting_type: MeetingType;
+=======
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   host_department_id: string;
   start_at: string;
   end_at: string;
@@ -28,6 +34,7 @@ export interface MeetingDepartment {
   can_comment: boolean;
 }
 
+<<<<<<< HEAD
 /** Người được tag/cử đi tham dự thay — chủ yếu dùng cho họp Ngoài ngành. */
 export interface MeetingParticipant {
   id: string;
@@ -36,6 +43,8 @@ export interface MeetingParticipant {
   assigned_by: string | null;
 }
 
+=======
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
 export interface DocumentRow {
   id: string;
   meeting_id: string;

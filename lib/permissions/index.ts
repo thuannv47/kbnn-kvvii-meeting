@@ -1,5 +1,9 @@
 import type { Profile } from '@/types/user';
+<<<<<<< HEAD
 import type { Meeting, MeetingDepartment, DocumentRow, MeetingConclusion, MeetingParticipant } from '@/types/meeting';
+=======
+import type { Meeting, MeetingDepartment, DocumentRow, MeetingConclusion } from '@/types/meeting';
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
 
 /**
  * QUAN TRỌNG: các hàm dưới đây chỉ dùng để ẨN/HIỆN nút trên UI
@@ -43,6 +47,7 @@ export function canHostDepartment(u: Profile | null | undefined, departmentId: s
 }
 
 /**
+<<<<<<< HEAD
  * QUY TẮC HIỂN THỊ (khớp với can_view_meeting()/can_comment_meeting() ở
  * supabase/migrations/0010_draft_admin_only.sql — đây chỉ là lớp kiểm tra
  * phụ ở UI, lớp chặn thật sự vẫn là RLS):
@@ -55,10 +60,19 @@ export function canHostDepartment(u: Profile | null | undefined, departmentId: s
  *    tích "Xem"/"Ý kiến" trong phân quyền.
  * 3) Họp NGOÀI NGÀNH: bỏ hẳn logic phòng ban VÀ logic BGD ở MỌI trạng thái
  *    — chỉ người tạo, ADMIN, và người được TAG mới thấy được.
+=======
+ * QUAN TRỌNG: khi cuộc họp còn ở trạng thái NHÁP (DRAFT), chỉ phòng chủ trì,
+ * người tạo, hoặc ADMIN/BGD mới thấy được — các phòng đã được tích "Xem"/"Ý kiến"
+ * trong meeting_departments (perms) CHƯA được thấy cho tới khi cuộc họp được
+ * Duyệt (chuyển sang OPEN). Quy tắc này phải khớp với can_view_meeting()/
+ * can_comment_meeting() ở supabase/migrations/0006_draft_hidden_until_approved.sql
+ * — đây chỉ là lớp kiểm tra phụ ở UI, lớp chặn thật sự vẫn là RLS.
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
  */
 export function canViewMeeting(
   meeting: Meeting,
   perms: MeetingDepartment[],
+<<<<<<< HEAD
   u?: Profile | null,
   participants: MeetingParticipant[] = []
 ) {
@@ -70,12 +84,22 @@ export function canViewMeeting(
   if (meeting.status === 'DRAFT') return false;
   if (isBGD(u)) return true;
   if (meeting.host_department_id === u.department_id) return true;
+=======
+  u?: Profile | null
+) {
+  if (!u) return false;
+  if (isBGD(u)) return true;
+  if (meeting.host_department_id === u.department_id) return true;
+  if (meeting.created_by === u.id) return true;
+  if (meeting.status === 'DRAFT') return false;
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   return perms.some((p) => p.department_id === u.department_id && p.can_view);
 }
 
 export function canCommentMeeting(
   meeting: Meeting,
   perms: MeetingDepartment[],
+<<<<<<< HEAD
   u?: Profile | null,
   participants: MeetingParticipant[] = []
 ) {
@@ -87,6 +111,15 @@ export function canCommentMeeting(
   if (meeting.status === 'DRAFT') return false;
   if (isBGD(u)) return true;
   if (meeting.host_department_id === u.department_id) return true;
+=======
+  u?: Profile | null
+) {
+  if (!u) return false;
+  if (isBGD(u)) return true;
+  if (meeting.host_department_id === u.department_id) return true;
+  if (meeting.created_by === u.id) return true;
+  if (meeting.status === 'DRAFT') return false;
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   return perms.some((p) => p.department_id === u.department_id && p.can_comment);
 }
 
@@ -140,10 +173,16 @@ export function canEditMeetingContent(meeting: Meeting, u?: Profile | null) {
 export function canUploadDocument(
   meeting: Meeting,
   perms: MeetingDepartment[],
+<<<<<<< HEAD
   u?: Profile | null,
   participants: MeetingParticipant[] = []
 ) {
   return canCommentMeeting(meeting, perms, u, participants);
+=======
+  u?: Profile | null
+) {
+  return canCommentMeeting(meeting, perms, u);
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
 }
 
 /** Thêm version mới (= sửa) cho tài liệu đã có. Xem quy tắc ở canEditMeetingContent. */

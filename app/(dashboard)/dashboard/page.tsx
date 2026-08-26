@@ -44,6 +44,7 @@ export default async function DashboardPage() {
   }
 
   return (
+<<<<<<< HEAD
     // Mẫu 1 (trang trọng, hành chính): header + banner nháp + bảng gộp chung
     // trong 1 khối thẻ liền mạch, thay vì 3 khối tách rời có khoảng cách riêng.
     <div className="card overflow-hidden">
@@ -52,6 +53,14 @@ export default async function DashboardPage() {
           <h1 className="text-2xl">Trang chủ</h1>
           <p className="text-xs text-inksoft mt-1">
             Danh sách chỉ hiển thị cuộc họp
+=======
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl">Trang chủ</h1>
+          <p className="text-xs text-inksoft mt-1">
+            Danh sách chỉ hiển thị cuộc họp còn trong hạn hiển thị. Xem đầy đủ lịch sử ở mục Tìm kiếm.
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
           </p>
         </div>
         {canCreateMeeting(profile) && (
@@ -62,24 +71,41 @@ export default async function DashboardPage() {
       </div>
 
       {draftCount > 0 && (
+<<<<<<< HEAD
         <div className="px-6 py-3 border-b border-line bg-gold/10 text-sm flex items-center gap-2">
           <span aria-hidden>📝</span>
           <span>
             Bạn có <b>{draftCount}</b> cuộc họp đang ở dạng <b>Nháp</b> 
+=======
+        <div className="rounded-lg border border-gold/40 bg-gold/5 px-4 py-3 text-sm flex items-center gap-2">
+          <span aria-hidden>📝</span>
+          <span>
+            Bạn có <b>{draftCount}</b> cuộc họp đang ở dạng <b>Nháp</b> — chỉ mình bạn thấy được. Mở
+            cuộc họp (xếp đầu bảng bên dưới) để rà soát nội dung rồi bấm "Duyệt tạo cuộc họp" khi sẵn
+            sàng cho các phòng ban được phân quyền xem.
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
           </span>
         </div>
       )}
 
       {/* Gộp chung 1 bảng: Nháp cần xử lý lên đầu, rồi đang diễn ra, sắp diễn ra, vừa kết thúc.
+<<<<<<< HEAD
           Trạng thái được thể hiện qua badge (không dùng vạch màu bên trái) vì bảng đã
           nằm lồng trong card của trang, giữ giao diện gọn và trang trọng hơn. */}
+=======
+          Vạch màu bên trái mỗi dòng (đỏ/xanh/xám/nâu) giúp phân biệt trạng thái nhanh
+          mà không cần tách bảng. */}
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
       <MeetingTable
         items={list}
         docCountByMeeting={docCountByMeeting}
         deptCountByMeeting={deptCountByMeeting}
         empty="Hiện không có cuộc họp nào trong hạn hiển thị."
         now={now}
+<<<<<<< HEAD
         flat
+=======
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
       />
     </div>
   );
