@@ -2,11 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-<<<<<<< HEAD
 import type { Meeting, MeetingDepartment, MeetingParticipant } from '@/types/meeting';
-=======
-import type { Meeting, MeetingDepartment } from '@/types/meeting';
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
 import type { Department } from '@/types/user';
 import {
   updateMeetingDepartmentsAction,
@@ -17,20 +13,14 @@ import {
 export default function TabInfo({
   meeting,
   perms,
-<<<<<<< HEAD
   participants = [],
-=======
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   allDepartments,
   canManage,
   canDelete
 }: {
   meeting: Meeting;
   perms: MeetingDepartment[];
-<<<<<<< HEAD
   participants?: (MeetingParticipant & { profiles?: { full_name: string; position: string | null } })[];
-=======
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   allDepartments: Department[];
   canManage: boolean;
   canDelete: boolean;
@@ -133,7 +123,6 @@ export default function TabInfo({
         <p className="text-sm text-inksoft whitespace-pre-wrap">{meeting.summary || '—'}</p>
       </div>
 
-<<<<<<< HEAD
       {meeting.meeting_type === 'EXTERNAL' && (
         <div className="card p-4">
           <h3 className="font-semibold mb-2">Thông tin họp ngoài ngành</h3>
@@ -156,8 +145,6 @@ export default function TabInfo({
         </div>
       )}
 
-=======
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
       <div className="card p-4">
         <h3 className="font-semibold mb-2">Hiển thị</h3>
         <p className="text-sm text-inksoft">

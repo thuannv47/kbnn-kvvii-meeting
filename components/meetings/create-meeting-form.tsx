@@ -3,13 +3,9 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createMeetingAction } from '@/actions/meeting.actions';
-<<<<<<< HEAD
 import { requestDocumentUploadUrlAction, confirmDocumentUploadAction } from '@/actions/document.actions';
 import type { Department } from '@/types/user';
 import type { MeetingType } from '@/types/meeting';
-=======
-import type { Department } from '@/types/user';
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
 
 const VISIBILITY_OPTIONS = [
   { label: '48 giờ', value: 48 },
@@ -19,7 +15,6 @@ const VISIBILITY_OPTIONS = [
   { label: 'Không giới hạn', value: '' }
 ];
 
-<<<<<<< HEAD
 type PickableUser = {
   id: string;
   full_name: string;
@@ -51,25 +46,17 @@ function normalizeVN(s: string) {
 export default function CreateMeetingForm({
   departments,
   users,
-=======
-export default function CreateMeetingForm({
-  departments,
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   defaultDepartmentId,
   canPickAnyDepartment
 }: {
   departments: Department[];
-<<<<<<< HEAD
   users: PickableUser[];
-=======
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   defaultDepartmentId: string;
   canPickAnyDepartment: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [selectedDepts, setSelectedDepts] = useState<string[]>(departments.map((d) => d.id));
-<<<<<<< HEAD
   const [meetingType, setMeetingType] = useState<MeetingType>('INTERNAL');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [participantSearch, setParticipantSearch] = useState('');
@@ -95,10 +82,6 @@ export default function CreateMeetingForm({
 
   const selectedUserObjs = users.filter((u) => selectedParticipants.includes(u.id));
 
-=======
-  const [isPending, startTransition] = useTransition();
-
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   function toggleDept(id: string) {
     setSelectedDepts((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
@@ -109,7 +92,6 @@ export default function CreateMeetingForm({
     setSelectedDepts(allSelected ? [] : departments.map((d) => d.id));
   }
 
-<<<<<<< HEAD
   function toggleParticipant(id: string) {
     setSelectedParticipants((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
@@ -131,34 +113,20 @@ export default function CreateMeetingForm({
       return;
     }
 
-=======
-  // Luôn tạo ở dạng NHÁP — người khác chưa thấy được. Sau khi tạo, vào chi tiết
-  // cuộc họp và bấm "Duyệt tạo cuộc họp" khi đã sẵn sàng cho các phòng được
-  // phân quyền xem. Không cho chọn trạng thái ngay lúc tạo để tránh bỏ qua bước
-  // kiểm tra lại thông tin/phân quyền trước khi mở.
-  function submit(formData: FormData) {
-    setError(null);
-    const visRaw = String(formData.get('visibility_duration_hours') || '');
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
     startTransition(async () => {
       const res = await createMeetingAction({
         title: String(formData.get('title') || ''),
         summary: String(formData.get('summary') || ''),
-<<<<<<< HEAD
         location: meetingType === 'EXTERNAL' ? String(formData.get('location') || '') : '',
         meeting_type: meetingType,
         host_department_id:
           meetingType === 'EXTERNAL'
             ? impliedHostDepartmentId
             : String(formData.get('host_department_id') || ''),
-=======
-        host_department_id: String(formData.get('host_department_id') || ''),
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
         start_at: String(formData.get('start_at') || ''),
         end_at: String(formData.get('end_at') || ''),
         visibility_duration_hours: visRaw === '' ? null : Number(visRaw),
         participant_department_ids: selectedDepts,
-<<<<<<< HEAD
         participant_user_ids: meetingType === 'EXTERNAL' ? selectedParticipants : [],
         status: 'DRAFT'
       });
@@ -211,12 +179,6 @@ export default function CreateMeetingForm({
       }
 
       router.push(`/meetings/${meeting.id}`);
-=======
-        status: 'DRAFT'
-      });
-      if (res?.error) setError(res.error);
-      else if (res?.data) router.push(`/meetings/${res.data.id}`);
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
     });
   }
 
@@ -230,7 +192,6 @@ export default function CreateMeetingForm({
         <label className="text-sm font-medium block mb-1">Tóm tắt *</label>
         <textarea name="summary" required rows={3} className="input" />
       </div>
-<<<<<<< HEAD
 
       <div>
         <label className="text-sm font-medium block mb-2">Loại cuộc họp *</label>
@@ -389,31 +350,6 @@ export default function CreateMeetingForm({
           )}
         </div>
       )}
-=======
-      <div>
-        <label className="text-sm font-medium block mb-1">Phòng chủ trì *</label>
-        {canPickAnyDepartment ? (
-          <select name="host_department_id" required defaultValue={defaultDepartmentId} className="input">
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <>
-            {/* Nhân viên/Trưởng phòng chỉ được tạo họp do chính phòng mình chủ trì */}
-            <input
-              className="input bg-line/40 cursor-not-allowed"
-              value={departments.find((d) => d.id === defaultDepartmentId)?.name ?? ''}
-              disabled
-              readOnly
-            />
-            <input type="hidden" name="host_department_id" value={defaultDepartmentId} />
-          </>
-        )}
-      </div>
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-sm font-medium block mb-1">Thời gian bắt đầu *</label>
@@ -468,15 +404,9 @@ export default function CreateMeetingForm({
         </button>
       </div>
       <p className="text-xs text-inksoft">
-<<<<<<< HEAD
         Cuộc họp sẽ được tạo ở dạng <span className="font-medium text-ink">Nháp</span> — chỉ mình bạn (và
         người được cử đi, nếu có) thấy được. Vào chi tiết cuộc họp sau khi tạo để bấm "Duyệt tạo cuộc họp"
         khi sẵn sàng cho các phòng ban được phân quyền xem.
-=======
-        Cuộc họp sẽ được tạo ở dạng <span className="font-medium text-ink">Nháp</span> — chỉ mình bạn thấy
-        được. Vào chi tiết cuộc họp sau khi tạo để bấm "Duyệt tạo cuộc họp" khi sẵn sàng cho các phòng ban
-        được phân quyền xem.
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
       </p>
     </form>
   );

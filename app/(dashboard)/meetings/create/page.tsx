@@ -9,8 +9,7 @@ export default async function CreateMeetingPage() {
   if (!canCreateMeeting(profile)) redirect('/dashboard'); // Lớp 1: chặn UI truy cập trang
 
   const supabase = createServerSupabase();
-<<<<<<< HEAD
-  const [{ data: departments }, { data: users }] = await Promise.all([
+  const [{ data: departments }, { data: usersRaw }] = await Promise.all([
     supabase.from('departments').select('*').eq('active', true).order('name'),
     supabase
       .from('profiles')
@@ -18,19 +17,20 @@ export default async function CreateMeetingPage() {
       .eq('active', true)
       .order('full_name')
   ]);
-=======
-  const { data: departments } = await supabase.from('departments').select('*').eq('active', true).order('name');
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
+
+  // Supabase trả `departments` (quan hệ foreign key) dạng mảng dù chỉ có 1 dòng liên kết —
+  // chuẩn hoá về object đơn (hoặc null) để khớp với type PickableUser ở form.
+  const users = (usersRaw ?? []).map((u) => ({
+    ...u,
+    departments: Array.isArray(u.departments) ? (u.departments[0] ?? null) : u.departments
+  }));
 
   return (
     <div className="max-w-2xl">
       <h1 className="text-2xl mb-5">Tạo cuộc họp mới</h1>
       <CreateMeetingForm
         departments={departments ?? []}
-<<<<<<< HEAD
-        users={users ?? []}
-=======
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
+        users={users}
         defaultDepartmentId={profile.department_id ?? ''}
         canPickAnyDepartment={isBGD(profile)}
       />

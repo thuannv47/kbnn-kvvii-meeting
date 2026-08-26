@@ -1,11 +1,7 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
-<<<<<<< HEAD
 import type { Meeting, MeetingDepartment, MeetingParticipant } from '@/types/meeting';
-=======
-import type { Meeting, MeetingDepartment } from '@/types/meeting';
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
 import type { Profile } from '@/types/user';
 import { canUploadDocument, canAddVersion, canDeleteDocument } from '@/lib/permissions';
 import {
@@ -35,27 +31,17 @@ function formatSize(bytes?: number | null) {
 export default function TabDocuments({
   meeting,
   perms,
-<<<<<<< HEAD
   participants = [],
-=======
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   documents,
   profile
 }: {
   meeting: Meeting;
   perms: MeetingDepartment[];
-<<<<<<< HEAD
   participants?: MeetingParticipant[];
   documents: any[];
   profile: Profile;
 }) {
   const canUpload = canUploadDocument(meeting, perms, profile, participants);
-=======
-  documents: any[];
-  profile: Profile;
-}) {
-  const canUpload = canUploadDocument(meeting, perms, profile);
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);

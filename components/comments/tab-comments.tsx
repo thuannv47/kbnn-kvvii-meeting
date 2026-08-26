@@ -1,11 +1,7 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
-<<<<<<< HEAD
 import type { Meeting, MeetingDepartment, MeetingParticipant } from '@/types/meeting';
-=======
-import type { Meeting, MeetingDepartment } from '@/types/meeting';
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
 import type { Profile } from '@/types/user';
 import { canCommentMeeting, canDeleteComment } from '@/lib/permissions';
 import { addCommentAction, deleteCommentAction, requestCommentAttachmentUploadUrlAction } from '@/actions/comment.actions';
@@ -13,27 +9,17 @@ import { addCommentAction, deleteCommentAction, requestCommentAttachmentUploadUr
 export default function TabComments({
   meeting,
   perms,
-<<<<<<< HEAD
   participants = [],
-=======
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   comments,
   profile
 }: {
   meeting: Meeting;
   perms: MeetingDepartment[];
-<<<<<<< HEAD
   participants?: MeetingParticipant[];
   comments: any[];
   profile: Profile;
 }) {
   const canComment = canCommentMeeting(meeting, perms, profile, participants);
-=======
-  comments: any[];
-  profile: Profile;
-}) {
-  const canComment = canCommentMeeting(meeting, perms, profile);
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   const canDelete = canDeleteComment(meeting, profile);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
