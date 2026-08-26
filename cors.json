@@ -1,0 +1,10 @@
+﻿[
+  {
+    "corsRuleName": "allowUploadFromApp",
+    "allowedOrigins": ["https://kbnn-kvvii-meeting.vercel.app"],
+    "allowedHeaders": ["*"],
+    "allowedOperations": ["s3_head", "s3_get", "s3_put", "s3_post", "s3_delete"],
+    "exposeHeaders": ["ETag"],
+    "maxAgeSeconds": 3600
+  }
+]
