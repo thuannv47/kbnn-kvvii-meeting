@@ -10,11 +10,21 @@ import { logAudit } from '@/lib/audit/log';
 const createMeetingSchema = z.object({
   title: z.string().min(3, 'Tiêu đề tối thiểu 3 ký tự'),
   summary: z.string().optional(),
+<<<<<<< HEAD
+  location: z.string().optional(),
+  meeting_type: z.enum(['INTERNAL', 'EXTERNAL']).default('INTERNAL'),
+=======
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   host_department_id: z.string().uuid(),
   start_at: z.string(),
   end_at: z.string(),
   visibility_duration_hours: z.coerce.number().nullable(),
   participant_department_ids: z.array(z.string().uuid()).default([]),
+<<<<<<< HEAD
+  /** Người được tag/cử đi tham dự thay — chủ yếu dùng cho họp Ngoài ngành. */
+  participant_user_ids: z.array(z.string().uuid()).default([]),
+=======
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   status: z.enum(['DRAFT', 'OPEN']).default('DRAFT')
 });
 
@@ -57,6 +67,20 @@ export async function createMeetingAction(input: z.infer<typeof createMeetingSch
     return { error: 'Thời gian kết thúc phải sau thời gian bắt đầu.' };
   }
 
+<<<<<<< HEAD
+  // Họp Ngoài ngành: bắt buộc có địa điểm và ít nhất 1 người được cử đi,
+  // vì mục đích chính của loại cuộc họp này là thông báo địa điểm + cử người thay mặt.
+  if (data.meeting_type === 'EXTERNAL') {
+    if (!data.location?.trim()) {
+      return { error: 'Vui lòng nhập địa điểm cho cuộc họp ngoài ngành.' };
+    }
+    if (data.participant_user_ids.length === 0) {
+      return { error: 'Vui lòng chọn ít nhất 1 người được cử đi tham dự.' };
+    }
+  }
+
+=======
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   const supabase = createServerSupabase();
 
   // ---- DEBUG TẠM THỜI: kiểm tra session thực tế ngay trước khi insert ----
@@ -97,6 +121,11 @@ export async function createMeetingAction(input: z.infer<typeof createMeetingSch
     code: meetingCode,
     title: data.title,
     summary: data.summary ?? null,
+<<<<<<< HEAD
+    location: data.location?.trim() || null,
+    meeting_type: data.meeting_type,
+=======
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
     host_department_id: data.host_department_id,
     start_at: data.start_at,
     end_at: data.end_at,
@@ -136,6 +165,18 @@ export async function createMeetingAction(input: z.infer<typeof createMeetingSch
     await supabase.from('meeting_departments').insert(rows);
   }
 
+<<<<<<< HEAD
+  if (data.participant_user_ids.length > 0) {
+    const rows = data.participant_user_ids.map((user_id) => ({
+      meeting_id: meeting.id,
+      user_id,
+      assigned_by: authId
+    }));
+    await supabase.from('meeting_participants').insert(rows);
+  }
+
+=======
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   await logAudit({
     userId: authId,
     action: 'CREATE_MEETING',

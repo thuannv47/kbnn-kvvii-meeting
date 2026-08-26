@@ -13,9 +13,19 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   if (!meeting) notFound();
 
   const { data: perms } = await supabase.from('meeting_departments').select('*').eq('meeting_id', params.id);
+<<<<<<< HEAD
+  const { data: participants } = await supabase
+    .from('meeting_participants')
+    .select('*, profiles:user_id(full_name, position)')
+    .eq('meeting_id', params.id);
+  const { data: hostDept } = await supabase.from('departments').select('*').eq('id', meeting.host_department_id).single();
+
+  if (!canViewMeeting(meeting as any, (perms ?? []) as any, profile, (participants ?? []) as any)) notFound();
+=======
   const { data: hostDept } = await supabase.from('departments').select('*').eq('id', meeting.host_department_id).single();
 
   if (!canViewMeeting(meeting as any, (perms ?? []) as any, profile)) notFound();
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
 
   const [{ data: documents }, { data: comments }, { data: conclusion }, { data: allDepartments }] =
     await Promise.all([
@@ -38,6 +48,10 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
       meeting={meeting as any}
       hostDepartmentName={hostDept?.name}
       perms={(perms ?? []) as any}
+<<<<<<< HEAD
+      participants={(participants ?? []) as any}
+=======
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
       documents={(documents ?? []) as any}
       comments={(comments ?? []) as any}
       conclusion={(conclusion ?? null) as any}

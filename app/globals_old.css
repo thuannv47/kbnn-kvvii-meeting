@@ -53,17 +53,10 @@
     @apply w-full text-sm border-collapse;
   }
   .table-clean thead th {
-<<<<<<< HEAD
-    @apply text-left px-6 py-3 bg-paper2 border-b border-line text-inksoft font-semibold text-[11px] uppercase tracking-wide;
-  }
-  .table-clean tbody td {
-    @apply px-6 py-3 border-b border-line align-middle;
-=======
     @apply text-left px-4 py-3 bg-paper2 border-b border-line text-inksoft font-semibold text-[11px] uppercase tracking-wide;
   }
   .table-clean tbody td {
     @apply px-4 py-3 border-b border-line align-middle;
->>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
   }
   .table-clean tbody tr:last-child td {
     @apply border-b-0;

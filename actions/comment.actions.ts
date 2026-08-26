@@ -27,9 +27,19 @@ export async function requestCommentAttachmentUploadUrlAction(input: {
 
   const { data: meeting } = await supabase.from('meetings').select('*').eq('id', input.meetingId).single();
   const { data: perms } = await supabase.from('meeting_departments').select('*').eq('meeting_id', input.meetingId);
+<<<<<<< HEAD
+  const { data: participants } = await supabase
+    .from('meeting_participants')
+    .select('*')
+    .eq('meeting_id', input.meetingId);
+  if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
+
+  if (!canCommentMeeting(meeting as any, (perms ?? []) as any, profile, (participants ?? []) as any)) {
+=======
   if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
 
   if (!canCommentMeeting(meeting as any, (perms ?? []) as any, profile)) {
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
     return { error: 'Bạn không có quyền tham gia ý kiến cho cuộc họp này.' };
   }
 
@@ -64,9 +74,19 @@ export async function addCommentAction(formData: FormData) {
 
   const { data: meeting } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
   const { data: perms } = await supabase.from('meeting_departments').select('*').eq('meeting_id', meetingId);
+<<<<<<< HEAD
+  const { data: participants } = await supabase
+    .from('meeting_participants')
+    .select('*')
+    .eq('meeting_id', meetingId);
+  if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
+
+  if (!canCommentMeeting(meeting as any, (perms ?? []) as any, profile, (participants ?? []) as any)) {
+=======
   if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
 
   if (!canCommentMeeting(meeting as any, (perms ?? []) as any, profile)) {
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
     return { error: 'Bạn không có quyền tham gia ý kiến cho cuộc họp này.' };
   }
 

@@ -9,11 +9,19 @@ import { buildStoragePath, getUploadUrl, deleteFile, MAX_FILE_SIZE, ALLOWED_MIME
 
 async function loadMeetingContext(supabase: ReturnType<typeof createServerSupabase>, meetingId: string) {
   const { data: meeting } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
+<<<<<<< HEAD
+  const [{ data: perms }, { data: participants }] = await Promise.all([
+    supabase.from('meeting_departments').select('*').eq('meeting_id', meetingId),
+    supabase.from('meeting_participants').select('*').eq('meeting_id', meetingId)
+  ]);
+  return { meeting, perms: perms ?? [], participants: participants ?? [] };
+=======
   const { data: perms } = await supabase
     .from('meeting_departments')
     .select('*')
     .eq('meeting_id', meetingId);
   return { meeting, perms: perms ?? [] };
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
 }
 
 function validateFileMeta(fileSize: number, mimeType: string) {
@@ -41,9 +49,15 @@ export async function requestDocumentUploadUrlAction(input: {
   const metaError = validateFileMeta(input.fileSize, input.mimeType);
   if (metaError) return { error: metaError };
 
+<<<<<<< HEAD
+  const { meeting, perms, participants } = await loadMeetingContext(supabase, input.meetingId);
+  if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
+  if (!canUploadDocument(meeting as any, perms as any, profile, participants as any)) {
+=======
   const { meeting, perms } = await loadMeetingContext(supabase, input.meetingId);
   if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
   if (!canUploadDocument(meeting as any, perms as any, profile)) {
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
     return { error: 'Bạn không có quyền tải tài liệu lên cuộc họp này.' };
   }
 
@@ -86,9 +100,15 @@ export async function confirmDocumentUploadAction(input: {
     return { error: 'Thiếu thông tin bắt buộc (tiêu đề / file).' };
   }
 
+<<<<<<< HEAD
+  const { meeting, perms, participants } = await loadMeetingContext(supabase, input.meetingId);
+  if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
+  if (!canUploadDocument(meeting as any, perms as any, profile, participants as any)) {
+=======
   const { meeting, perms } = await loadMeetingContext(supabase, input.meetingId);
   if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
   if (!canUploadDocument(meeting as any, perms as any, profile)) {
+>>>>>>> 83cd80671a83520b03a76c88ee6f42c66b77dd1d
     return { error: 'Bạn không có quyền tải tài liệu lên cuộc họp này.' };
   }
 
