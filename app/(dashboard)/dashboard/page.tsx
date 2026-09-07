@@ -1,0 +1,170 @@
+import Link from 'next/link';
+import { requireUser } from '@/lib/auth/current-user';
+import { createServerSupabase } from '@/lib/supabase/server';
+import { canManageOrg } from '@/lib/permissions';
+import { getMeetingDisplayStatus } from '@/lib/meetings/status';
+import { isMeetingRelevantToDepartment, sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
+import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
+import DashboardBanner from '@/components/dashboard/dashboard-banner';
+import type { Meeting } from '@/types/meeting';
+import { IconCalendar, IconSearch, IconBuilding, IconUser, IconUsers, IconShield } from '@/components/ui/icons';
+
+export default async function DashboardPage() {
+  const { profile } = await requireUser();
+  const supabase = createServerSupabase();
+  const { data: dept } = await supabase
+    .from('departments')
+    .select('name')
+    .eq('id', profile.department_id)
+    .maybeSingle();
+
+  // Dashboard: chỉ xét cuộc họp còn trong thời gian hiển thị (visible_until).
+  // RLS đã tự lọc theo quyền xem, ở đây chỉ lọc thêm điều kiện visible_until cho Dashboard.
+  const nowIso = new Date().toISOString();
+  const now = new Date(nowIso);
+  const { data: meetings } = await supabase
+    .from('meetings')
+    .select('*')
+    .or(`visible_until.is.null,visible_until.gte.${nowIso}`);
+
+  const list = (meetings ?? []) as Meeting[];
+
+  // QUY TẮC HIỂN THỊ TRÊN DASHBOARD (mục "Cuộc họp gần nhất"):
+  //  1) Chỉ lấy cuộc họp LIÊN QUAN đến phòng ban của người dùng — cuộc họp khác
+  //     xem trong "Danh sách các cuộc họp".
+  //  2) Chỉ lấy cuộc họp SẮP diễn ra (UPCOMING) — cuộc ĐÃ/ĐANG diễn ra xem trong
+  //     "Danh sách các cuộc họp".
+  //  3) Sắp xếp theo Ngày - giờ bắt đầu (sớm nhất trước); trùng giờ thì theo Tên hội nghị A -> Z.
+  const upcoming = list.filter((m) => getMeetingDisplayStatus(m, now).key === 'UPCOMING');
+
+  const upcomingIds = upcoming.map((m) => m.id);
+  const [{ data: meetingDepartments }, { data: participants }] = upcomingIds.length
+    ? await Promise.all([
+        supabase.from('meeting_departments').select('meeting_id, department_id, can_view').in('meeting_id', upcomingIds),
+        supabase
+          .from('meeting_participants')
+          .select('meeting_id, profiles:user_id(department_id)')
+          .in('meeting_id', upcomingIds)
+      ])
+    : [{ data: [] }, { data: [] }];
+
+  const deptPermsByMeeting = new Map<string, { department_id: string; can_view: boolean }[]>();
+  for (const row of meetingDepartments ?? []) {
+    const arr = deptPermsByMeeting.get(row.meeting_id) ?? [];
+    arr.push({ department_id: row.department_id, can_view: row.can_view });
+    deptPermsByMeeting.set(row.meeting_id, arr);
+  }
+  const participantDeptsByMeeting = new Map<string, (string | null | undefined)[]>();
+  for (const row of (participants ?? []) as any[]) {
+    const arr = participantDeptsByMeeting.get(row.meeting_id) ?? [];
+    arr.push(row.profiles?.department_id ?? null);
+    participantDeptsByMeeting.set(row.meeting_id, arr);
+  }
+
+  const relevantUpcoming = upcoming.filter((m) =>
+    isMeetingRelevantToDepartment(m, profile.department_id, {
+      meetingDepartments: deptPermsByMeeting.get(m.id) ?? [],
+      participantDepartmentIds: participantDeptsByMeeting.get(m.id) ?? []
+    })
+  );
+
+  const highlightList = sortMeetingsByStartThenTitle(relevantUpcoming, 'asc');
+
+  const quickLinks = [
+    { href: '/meetings', icon: IconCalendar, label: 'Cuộc họp', tile: 'icon-tile-peach' as const },
+    { href: '/search', icon: IconSearch, label: 'Tìm kiếm', tile: 'icon-tile-violet' as const },
+    { href: '/departments', icon: IconBuilding, label: 'Phòng ban', tile: 'icon-tile-rose' as const },
+    { href: '/account', icon: IconUser, label: 'Tài khoản', tile: 'icon-tile-slate' as const },
+    ...(canManageOrg(profile)
+      ? [
+          { href: '/users', icon: IconUsers, label: 'Người dùng', tile: 'icon-tile-amber' as const },
+          { href: '/admin', icon: IconShield, label: 'Quản trị / Audit', tile: 'icon-tile-indigo' as const }
+        ]
+      : [])
+  ];
+
+  return (
+    <div className="space-y-6">
+      <DashboardBanner profile={profile} departmentName={dept?.name} />
+
+      <div className="hidden md:block">
+        <h1 className="text-2xl">Trang chủ</h1>
+      </div>
+
+      {/* Lưới truy cập nhanh — khớp bố cục bản mẫu (4 icon/hàng) */}
+      <div className="grid grid-cols-4 gap-4">
+        {quickLinks.map(({ href, icon: Icon, label, tile }) => (
+          <Link key={label} href={href} className="flex flex-col items-center gap-2 text-center">
+            <span className={tile}>
+              <Icon size={24} />
+            </span>
+            <span className="text-[11.5px] leading-tight text-ink">{label}</span>
+          </Link>
+        ))}
+      </div>
+
+      <div>
+        <h2 className="font-semibold mb-2.5">Cuộc họp gần nhất</h2>
+
+        {highlightList.length === 0 ? (
+          <p className="table-empty card">Hiện không có cuộc họp nào sắp diễn ra liên quan đến phòng ban của bạn.</p>
+        ) : (
+          <div className="space-y-3">
+            {highlightList.map((m) => (
+              <Link
+                key={m.id}
+                href={`/meetings/${m.id}`}
+                className="card block p-4 hover:border-gold/40 transition-colors"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="icon-tile-peach flex-shrink-0">
+                    <IconCalendar size={22} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold leading-snug">{m.title}</h3>
+                  </div>
+                </div>
+
+                <div className="border-t border-line my-3" />
+
+                <dl className="space-y-1.5 text-sm">
+                  <div className="flex items-baseline gap-1.5">
+                    <dt className="text-inksoft flex-shrink-0">Thời gian:</dt>
+                    <dd className="font-medium">{new Date(m.start_at).toLocaleDateString('vi-VN')}</dd>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <dt className="text-inksoft flex-shrink-0"> Bắt đầu:</dt>
+                    <dd className="font-medium">
+                      {new Date(m.start_at).toLocaleTimeString('vi-VN', { hour12: false })}
+                    </dd>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <dt className="text-inksoft flex-shrink-0">Kết thúc:</dt>
+                    <dd className="font-medium">
+                      {new Date(m.end_at).toLocaleTimeString('vi-VN', { hour12: false })}
+                    </dd>
+                  </div>
+                  {m.summary && (
+                    <div className="flex items-baseline gap-1.5">
+                      <dt className="text-inksoft flex-shrink-0">Lãnh đạo tham dự:</dt>
+                      <dd className="font-medium">{m.summary}</dd>
+                    </div>
+                  )}
+                </dl>
+
+                {/* Thay cho nút hành động (VD "Báo vắng") — hiển thị trạng thái thực tế của cuộc họp */}
+                <div className="mt-3 pt-3 border-t border-line">
+                  <MeetingStatusBadge meeting={m} now={now} />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        <Link href="/meetings" className="inline-block mt-3 text-sm text-gold font-medium">
+          Xem tất cả cuộc họp →
+        </Link>
+      </div>
+    </div>
+  );
+}
