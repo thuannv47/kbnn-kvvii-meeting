@@ -8,7 +8,6 @@ import TabDocuments from '@/components/documents/tab-documents';
 import TabComments from '@/components/comments/tab-comments';
 import TabConclusion from '@/components/conclusions/tab-conclusion';
 import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
-import { formatDateTimeVN } from '@/lib/format-date';
 
 type TabKey = 'info' | 'documents' | 'comments' | 'conclusion';
 
@@ -46,15 +45,7 @@ export default function MeetingTabs(props: {
           <p className="font-mono text-xs text-inksoft">{meeting.code}</p>
         </div>
         <h1 className="text-2xl mb-1">{meeting.title}</h1>
-        <p className="text-inksoft text-sm">
-          {hostDepartmentName} · {formatDateTimeVN(meeting.start_at)} →{' '}
-          {formatDateTimeVN(meeting.end_at)}
-        </p>
-        {meeting.location && (
-          <p className="text-inksoft text-sm mt-0.5">
-            <span aria-hidden>📍</span> {meeting.location}
-          </p>
-        )}
+        {hostDepartmentName && <p className="text-inksoft text-sm">{hostDepartmentName}</p>}
         {participants.length > 0 && meeting.meeting_type === 'EXTERNAL' && (
           <p className="text-inksoft text-sm mt-0.5">
             <span aria-hidden>🧑‍💼</span> Cử đi:{' '}

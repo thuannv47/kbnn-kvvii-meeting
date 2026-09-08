@@ -33,10 +33,12 @@ export default async function DashboardPage() {
   // QUY TẮC HIỂN THỊ TRÊN DASHBOARD (mục "Cuộc họp gần nhất"):
   //  1) Chỉ lấy cuộc họp LIÊN QUAN đến phòng ban của người dùng — cuộc họp khác
   //     xem trong "Danh sách các cuộc họp".
-  //  2) Chỉ lấy cuộc họp SẮP diễn ra (UPCOMING) — cuộc ĐÃ/ĐANG diễn ra xem trong
-  //     "Danh sách các cuộc họp".
-  //  3) Sắp xếp theo Ngày - giờ bắt đầu (sớm nhất trước); trùng giờ thì theo Tên hội nghị A -> Z.
-  const upcoming = list.filter((m) => getMeetingDisplayStatus(m, now).key === 'UPCOMING');
+  //  2) Lấy cả cuộc họp ĐANG diễn ra (LIVE) lẫn SẮP diễn ra (UPCOMING) — cuộc ĐÃ
+  //     kết thúc xem trong "Danh sách các cuộc họp".
+  //  3) Sắp xếp: Đang diễn ra lên trước, trong mỗi nhóm theo Ngày - giờ bắt đầu
+  //     (sớm nhất trước); trùng giờ thì theo Tên hội nghị A -> Z.
+  const relevantStatuses = new Set(['LIVE', 'UPCOMING']);
+  const upcoming = list.filter((m) => relevantStatuses.has(getMeetingDisplayStatus(m, now).key));
 
   const upcomingIds = upcoming.map((m) => m.id);
   const [{ data: meetingDepartments }, { data: participants }] = upcomingIds.length
@@ -69,7 +71,13 @@ export default async function DashboardPage() {
     })
   );
 
-  const highlightList = sortMeetingsByStartThenTitle(relevantUpcoming, 'asc');
+  const highlightList = (() => {
+    const byTime = sortMeetingsByStartThenTitle(relevantUpcoming, 'asc');
+    const STATUS_ORDER: Record<string, number> = { LIVE: 0, UPCOMING: 1 };
+    return [...byTime].sort(
+      (a, b) => STATUS_ORDER[getMeetingDisplayStatus(a, now).key] - STATUS_ORDER[getMeetingDisplayStatus(b, now).key]
+    );
+  })();
 
   const quickLinks = [
     { href: '/meetings', icon: IconCalendar, label: 'Cuộc họp', tile: 'icon-tile-peach' as const },
@@ -108,7 +116,7 @@ export default async function DashboardPage() {
         <h2 className="font-semibold mb-2.5">Cuộc họp gần nhất</h2>
 
         {highlightList.length === 0 ? (
-          <p className="table-empty card">Hiện không có cuộc họp nào sắp diễn ra liên quan đến phòng ban của bạn.</p>
+          <p className="table-empty card">Hiện không có cuộc họp nào đang/sắp diễn ra liên quan đến phòng ban của bạn.</p>
         ) : (
           <div className="space-y-3">
             {highlightList.map((m) => (

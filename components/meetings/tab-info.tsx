@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Meeting, MeetingDepartment, MeetingParticipant } from '@/types/meeting';
 import type { Department } from '@/types/user';
 import { updateMeetingStatusAction, deleteMeetingAction, updateMeetingInfoAction } from '@/actions/meeting.actions';
+import { formatDateVN, formatTimeVN } from '@/lib/format-date';
 
 /** Chuyển ISO timestamp -> giá trị cho <input type="datetime-local"> (giờ địa phương, không giây). */
 function toDatetimeLocalValue(iso: string) {
@@ -159,6 +160,31 @@ export default function TabInfo({
           <>
             <p className="text-xs text-inksoft mb-1">Tham dự cuộc họp (Người được cử tham dự cuộc họp)</p>
             <p className="text-sm text-inksoft whitespace-pre-wrap">{meeting.summary || '—'}</p>
+
+            <div className="mt-3 pt-3 border-t border-line space-y-1.5">
+              <p className="text-sm">
+                <span aria-hidden>📍</span>{' '}
+                <span className="bg-paper2 rounded px-1.5 py-0.5">
+                  {meeting.location || '— chưa xác định'}
+                </span>
+              </p>
+              <p className="text-sm">
+                <span className="text-inksoft">Thời gian:</span>{' '}
+                <span className="font-medium">{formatDateVN(meeting.start_at)}</span>
+              </p>
+              <p className="text-sm pl-4">
+                <span className="text-inksoft">Bắt đầu:</span>{' '}
+                <span className="font-medium">
+                  {formatTimeVN(meeting.start_at, { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </p>
+              <p className="text-sm pl-4">
+                <span className="text-inksoft">Kết thúc:</span>{' '}
+                <span className="font-medium">
+                  {formatTimeVN(meeting.end_at, { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </p>
+            </div>
           </>
         ) : (
           <div className="space-y-2.5">

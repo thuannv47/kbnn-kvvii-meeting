@@ -44,7 +44,7 @@
   }
   .badge-live { @apply badge-status bg-[#E6F4EA] text-[#1E7A34]; }
   .badge-upcoming { @apply badge-status bg-[#FDF1DC] text-[#8A5A17]; }
-  .badge-done { @apply badge-status bg-surface text-inksoft border border-line; }
+  .badge-done { @apply badge-status bg-[#EDEFF2] text-[#4B5563]; }
   .badge-draft { @apply badge-status bg-surface text-inksoft border border-dashed border-line; }
   .badge-external { @apply badge-status bg-[#F0EEFB] text-[#5B4FC4]; }
 
