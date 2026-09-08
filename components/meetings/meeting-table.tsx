@@ -2,16 +2,15 @@ import Link from 'next/link';
 import type { Meeting } from '@/types/meeting';
 import MeetingStatusBadge from './meeting-status-badge';
 import { getMeetingDisplayStatus } from '@/lib/meetings/status';
+import { formatDateVN, formatTimeVN } from '@/lib/format-date';
 
 type Row = Meeting & { departments?: { name: string } };
 
 function fmtDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('vi-VN');
+  return formatDateVN(iso);
 }
 function fmtTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  return formatTimeVN(iso, { hour: '2-digit', minute: '2-digit' });
 }
 
 // Thứ tự ưu tiên hiển thị khi gộp chung 1 bảng: Nháp cần xử lý nên đưa lên đầu,

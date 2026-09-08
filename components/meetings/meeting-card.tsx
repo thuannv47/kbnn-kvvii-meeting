@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Meeting } from '@/types/meeting';
 import MeetingStatusBadge from './meeting-status-badge';
 import { IconDotsVertical, IconStarFilled } from '@/components/ui/icons';
+import { formatDateVN, formatTimeVN } from '@/lib/format-date';
 
 const typeLabel: Record<string, string> = {
   INTERNAL: 'Họp nội bộ',
@@ -11,9 +12,9 @@ const typeLabel: Record<string, string> = {
 function fmtRange(startIso: string, endIso: string) {
   const s = new Date(startIso);
   const e = new Date(endIso);
-  const sameDay = s.toDateString() === e.toDateString();
-  const d = (x: Date) => x.toLocaleDateString('vi-VN');
-  const t = (x: Date) => x.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  const d = (x: Date) => formatDateVN(x);
+  const t = (x: Date) => formatTimeVN(x, { hour: '2-digit', minute: '2-digit' });
+  const sameDay = d(s) === d(e);
   return sameDay ? `${d(s)} ${t(s)} - ${t(e)}` : `${d(s)} ${t(s)} - ${d(e)} ${t(e)}`;
 }
 

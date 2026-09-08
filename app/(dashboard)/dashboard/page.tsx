@@ -8,6 +8,7 @@ import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
 import DashboardBanner from '@/components/dashboard/dashboard-banner';
 import type { Meeting } from '@/types/meeting';
 import { IconCalendar, IconSearch, IconBuilding, IconUser, IconUsers, IconShield } from '@/components/ui/icons';
+import { formatDateVN, formatTimeVN } from '@/lib/format-date';
 
 export default async function DashboardPage() {
   const { profile } = await requireUser();
@@ -129,20 +130,16 @@ export default async function DashboardPage() {
 
                 <dl className="space-y-1.5 text-sm">
                   <div className="flex items-baseline gap-1.5">
-                    <dt className="text-inksoft flex-shrink-0">Thời gian:</dt>
-                    <dd className="font-medium">{new Date(m.start_at).toLocaleDateString('vi-VN')}</dd>
+                    <dt className="text-inksoft flex-shrink-0">Ngày:</dt>
+                    <dd className="font-medium">{formatDateVN(m.start_at)}</dd>
                   </div>
                   <div className="flex items-baseline gap-1.5">
-                    <dt className="text-inksoft flex-shrink-0"> Bắt đầu:</dt>
-                    <dd className="font-medium">
-                      {new Date(m.start_at).toLocaleTimeString('vi-VN', { hour12: false })}
-                    </dd>
+                    <dt className="text-inksoft flex-shrink-0">Thời gian từ:</dt>
+                    <dd className="font-medium">{formatTimeVN(m.start_at)}</dd>
                   </div>
                   <div className="flex items-baseline gap-1.5">
                     <dt className="text-inksoft flex-shrink-0">Kết thúc:</dt>
-                    <dd className="font-medium">
-                      {new Date(m.end_at).toLocaleTimeString('vi-VN', { hour12: false })}
-                    </dd>
+                    <dd className="font-medium">{formatTimeVN(m.end_at)}</dd>
                   </div>
                   {m.summary && (
                     <div className="flex items-baseline gap-1.5">

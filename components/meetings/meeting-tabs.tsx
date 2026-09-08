@@ -8,6 +8,7 @@ import TabDocuments from '@/components/documents/tab-documents';
 import TabComments from '@/components/comments/tab-comments';
 import TabConclusion from '@/components/conclusions/tab-conclusion';
 import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
+import { formatDateTimeVN } from '@/lib/format-date';
 
 type TabKey = 'info' | 'documents' | 'comments' | 'conclusion';
 
@@ -46,8 +47,8 @@ export default function MeetingTabs(props: {
         </div>
         <h1 className="text-2xl mb-1">{meeting.title}</h1>
         <p className="text-inksoft text-sm">
-          {hostDepartmentName} · {new Date(meeting.start_at).toLocaleString('vi-VN')} →{' '}
-          {new Date(meeting.end_at).toLocaleString('vi-VN')}
+          {hostDepartmentName} · {formatDateTimeVN(meeting.start_at)} →{' '}
+          {formatDateTimeVN(meeting.end_at)}
         </p>
         {meeting.location && (
           <p className="text-inksoft text-sm mt-0.5">

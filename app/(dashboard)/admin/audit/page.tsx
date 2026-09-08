@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { canManageOrg } from '@/lib/permissions';
+import { formatDateTimeVN } from '@/lib/format-date';
 
 const actionLabel: Record<string, string> = {
   CREATE_MEETING: 'Tạo cuộc họp',
@@ -88,7 +89,7 @@ export default async function AuditLogPage({
                   {log.entity_id ? ` · ${String(log.entity_id).slice(0, 8)}` : ''}
                 </td>
                 <td className="whitespace-nowrap text-inksoft">
-                  {new Date(log.created_at).toLocaleString('vi-VN')}
+                  {formatDateTimeVN(log.created_at)}
                 </td>
               </tr>
             ))}
