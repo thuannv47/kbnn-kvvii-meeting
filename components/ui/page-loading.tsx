@@ -4,24 +4,16 @@ import LogoSpinner from '@/components/ui/logo-spinner';
  * UI hiển thị tạm trong lúc server đang tải dữ liệu cho trang (Next.js tự
  * dùng file loading.tsx làm Suspense fallback ngay khi người dùng bấm điều
  * hướng sang trang này) — để họ biết là đang có kết nối, không phải đứng máy.
+ *
+ * Phủ kín màn hình (fixed inset-0) với nền mờ (backdrop-blur) thay vì chỉ
+ * chiếm chỗ nội dung — tạo cảm giác "làm mờ nền" trong lúc tải, đồng nhất
+ * với hiệu ứng chuyển trang trước đây, nhưng chỉ còn DUY NHẤT 1 nơi hiển thị
+ * loading (không còn RouteProgress chạy song song gây hiện 2 lần).
  */
-export default function PageLoading({ rows = 4 }: { rows?: number }) {
+export default function PageLoading() {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-center py-6">
-        <LogoSpinner size={52} label="Đang tải…" />
-      </div>
-      <div className="table-wrap p-0 overflow-hidden">
-        <div className="skeleton h-9 w-full rounded-none" />
-        <div className="divide-y divide-line">
-          {Array.from({ length: rows }).map((_, i) => (
-            <div key={i} className="p-4 space-y-2">
-              <div className="skeleton h-3.5 w-1/3" />
-              <div className="skeleton h-3 w-2/3" />
-            </div>
-          ))}
-        </div>
-      </div>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white/50 backdrop-blur-sm">
+      <LogoSpinner size={52} />
     </div>
   );
 }

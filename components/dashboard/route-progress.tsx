@@ -2,16 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import LogoSpinner from '@/components/ui/logo-spinner';
 
 /**
- * Hiệu ứng loading khi chuyển trang, gồm 3 phần:
+ * Hiệu ứng loading khi chuyển trang, gồm 2 phần:
  * 1) Thanh mỏng ở đầu trang — phản hồi tức thì ngay khi bấm link.
- * 2) Lớp phủ làm MỜ toàn bộ nội dung phía sau (backdrop-blur) — nhấn mạnh là
- *    trang đang thay đổi, tránh người dùng đọc/thao tác nhầm vào nội dung cũ.
- * 3) Huy hiệu logo KBNN nổi giữa màn hình, luôn RÕ NÉT (không bị mờ theo) và
- *    tự LẬT từ trái qua phải liên tục — cùng ý tưởng với các app quen thuộc
- *    (hiện icon thương hiệu lúc đang tải).
- * Cả 3 tự ẩn khi trang mới đã tải xong (pathname đổi) hoặc sau 6s an toàn.
+ * 2) Lớp phủ làm MỜ toàn bộ nội dung phía sau (backdrop-blur), cùng vòng
+ *    tròn logo xoay 2D nổi giữa màn hình — DÙNG CHUNG component LogoSpinner
+ *    với màn hình loading.tsx của từng trang, để toàn bộ hiệu ứng "đang tải"
+ *    trong app đồng nhất 1 kiểu duy nhất, không còn chỗ lật 3D chỗ đứng yên.
+ * Cả 2 tự ẩn khi trang mới đã tải xong (pathname đổi) hoặc sau 6s an toàn.
  */
 export default function RouteProgress() {
   const pathname = usePathname();
@@ -54,16 +54,7 @@ export default function RouteProgress() {
           riêng bên trên nên vẫn nét 100%). */}
       <div className="fixed inset-0 z-[65] bg-white/40 backdrop-blur-sm route-loading-fade" />
       <div className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none">
-        <div className="bg-white rounded-full shadow-lg border border-line p-3" style={{ perspective: 600 }}>
-          <img
-            src="/logo-kbnn.png"
-            alt="Đang tải"
-            width={40}
-            height={40}
-            className="logo-loading-flip"
-            style={{ objectFit: 'contain' }}
-          />
-        </div>
+        <LogoSpinner size={52} />
       </div>
     </>
   );

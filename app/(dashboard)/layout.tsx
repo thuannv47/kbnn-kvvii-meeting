@@ -2,7 +2,6 @@ import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
 import SidebarNav from '@/components/dashboard/sidebar-nav';
 import BottomNav from '@/components/dashboard/bottom-nav';
-import RouteProgress from '@/components/dashboard/route-progress';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { profile } = await requireUser();
@@ -15,7 +14,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[220px_1fr]">
-      <RouteProgress />
+      {/* Đã bỏ <RouteProgress /> — trước đây vừa bật ngay khi bấm link (RouteProgress)
+          vừa bật loading.tsx của Next.js khi trang mới đang tải dữ liệu, 2 lớp
+          logo chồng lên nhau trông như chạy 2 lần. Giờ chỉ còn duy nhất loading.tsx
+          (cơ chế Suspense có sẵn của Next.js) cho mỗi trang. */}
       {/* Desktop sidebar */}
       <SidebarNav profile={profile} departmentName={dept?.name} />
 

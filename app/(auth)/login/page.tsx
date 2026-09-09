@@ -19,8 +19,9 @@ export default function LoginPage() {
           <span className="eyebrow inline-block font-mono text-[11px] tracking-widest uppercase text-gold bg-gold/10 border border-gold/30 px-2.5 py-1 rounded-full">
             Hệ thống nội bộ
           </span>
-          <h1 className="text-2xl mt-4 mb-1">Phòng họp không giấy tờ</h1>
-          <p className="text-inksoft text-sm mb-6">Đăng nhập bằng tài khoản được cấp.</p>
+          <h1 className="text-2xl mt-4 mb-1">eCabinet KBNN KVVII</h1>
+          
+       
 
           <form
             className="space-y-3"
@@ -47,7 +48,7 @@ export default function LoginPage() {
                 autoComplete="username"
                 required
                 className="input"
-                placeholder="vd: binhtt"
+                placeholder="vd: nvthuan"
               />
             </div>
             <div>

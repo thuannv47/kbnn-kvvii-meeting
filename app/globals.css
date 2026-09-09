@@ -122,8 +122,11 @@
   animation: route-progress 1s ease-in-out infinite;
 }
 
-/* Logo huy hiệu tự LẬT từ trái qua phải (xoay quanh trục dọc) trong lúc
-   trang đang tải — báo hiệu "đang chạy", không phải màn hình bị đứng. */
+/* Vòng tròn logo LẬT từ trái qua phải (quanh trục dọc) — DÙNG CHUNG cho
+   toàn bộ màn hình loading (LogoSpinner: cả PageLoading lẫn RouteProgress).
+   Khung ngoài đã được cắt tròn (rounded-full + overflow-hidden ở
+   logo-spinner.tsx) nên lật không bị méo như bản cũ (khi đó ảnh chữ nhật bị
+   ép thẳng vào khung vuông mà chưa cắt tròn). */
 @keyframes logo-loading-flip {
   from { transform: rotateY(0deg); }
   to { transform: rotateY(360deg); }
