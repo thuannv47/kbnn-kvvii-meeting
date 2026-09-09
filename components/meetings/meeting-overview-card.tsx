@@ -26,7 +26,7 @@ export default function MeetingOverviewCard({ meeting }: { meeting: MeetingOverv
   return (
     <div className="card p-4">
       <h3 className="font-semibold leading-snug">{meeting.title}</h3>
-      {meeting.summary && <p className="text-sm text-inksoft mt-0.5">{meeting.summary}</p>}
+     
 
       <div className="border-t border-line my-3" />
 
