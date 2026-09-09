@@ -46,7 +46,7 @@ export default async function DashboardPage() {
         supabase.from('meeting_departments').select('meeting_id, department_id, can_view').in('meeting_id', upcomingIds),
         supabase
           .from('meeting_participants')
-          .select('meeting_id, profiles:user_id(department_id)')
+          .select('meeting_id, user_id, profiles:user_id(department_id)')
           .in('meeting_id', upcomingIds)
       ])
     : [{ data: [] }, { data: [] }];
@@ -58,18 +58,24 @@ export default async function DashboardPage() {
     deptPermsByMeeting.set(row.meeting_id, arr);
   }
   const participantDeptsByMeeting = new Map<string, (string | null | undefined)[]>();
+  // Cuộc họp Ngoài ngành (EXTERNAL) không có khái niệm "liên quan theo phòng ban" —
+  // chỉ liên quan tới ĐÚNG người được cử tham dự đích danh. Gom riêng ra 1 tập
+  // meeting_id mà chính người dùng hiện tại có tên trong meeting_participants.
+  const personalMeetingIds = new Set<string>();
   for (const row of (participants ?? []) as any[]) {
     const arr = participantDeptsByMeeting.get(row.meeting_id) ?? [];
     arr.push(row.profiles?.department_id ?? null);
     participantDeptsByMeeting.set(row.meeting_id, arr);
+    if (row.user_id === profile.id) personalMeetingIds.add(row.meeting_id);
   }
 
-  const relevantUpcoming = upcoming.filter((m) =>
-    isMeetingRelevantToDepartment(m, profile.department_id, {
+  const relevantUpcoming = upcoming.filter((m) => {
+    if (m.meeting_type === 'EXTERNAL') return personalMeetingIds.has(m.id);
+    return isMeetingRelevantToDepartment(m, profile.department_id, {
       meetingDepartments: deptPermsByMeeting.get(m.id) ?? [],
       participantDepartmentIds: participantDeptsByMeeting.get(m.id) ?? []
-    })
-  );
+    });
+  });
 
   const highlightList = (() => {
     const byTime = sortMeetingsByStartThenTitle(relevantUpcoming, 'asc');
