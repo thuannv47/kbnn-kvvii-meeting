@@ -142,7 +142,10 @@ export default async function DashboardPage() {
                   <span className="icon-tile-peach flex-shrink-0">
                     <IconCalendar size={22} />
                   </span>
-                  <h3 className="font-semibold leading-snug min-w-0">{m.title}</h3>
+                  <div className="min-w-0">
+                    <h3 className="font-semibold leading-snug">{m.title}</h3>
+                    {m.summary && <p className="text-sm text-inksoft mt-0.5">{m.summary}</p>}
+                  </div>
                 </div>
 
                 <div className="border-t border-line my-3" />
@@ -180,18 +183,10 @@ export default async function DashboardPage() {
                         </div>
                       </>
                     ) : (
-                      <>
-                        {m.summary && (
-                          <div className="flex gap-2">
-                            <span className="text-inksoft flex-shrink-0 w-[92px]">Lãnh đạo</span>
-                            <span className="font-medium">{m.summary}</span>
-                          </div>
-                        )}
-                        <div className="flex gap-2">
-                          <span className="text-inksoft flex-shrink-0 w-[92px]">Địa điểm</span>
-                          <span className="font-medium">{m.location || '— chưa xác định'}</span>
-                        </div>
-                      </>
+                      <div className="flex gap-2">
+                        <span className="text-inksoft flex-shrink-0 w-[92px]">Địa điểm</span>
+                        <span className="font-medium">{m.location || '— chưa xác định'}</span>
+                      </div>
                     )}
                   </div>
                 </div>

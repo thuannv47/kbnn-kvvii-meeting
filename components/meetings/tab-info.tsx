@@ -158,7 +158,7 @@ export default function TabInfo({
 
         {!isEditing ? (
           <>
-            <p className="text-xs text-inksoft mb-1">Tham dự cuộc họp (Người được cử tham dự cuộc họp)</p>
+            <p className="text-xs text-inksoft mb-1">Ghi chú (Hiển thị bên dưới tiêu đề cuộc họp)</p>
             <p className="text-sm text-inksoft whitespace-pre-wrap">{meeting.summary || '—'}</p>
 
             <div className="mt-3 pt-3 border-t border-line space-y-1.5">
@@ -196,6 +196,18 @@ export default function TabInfo({
                 className="input"
               />
             </div>
+            <div>
+              <label className="text-xs text-inksoft mb-1 block">
+                Ghi chú (Hiển thị bên dưới tiêu đề cuộc họp)
+              </label>
+              <textarea
+                value={form.summary}
+                onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))}
+                rows={3}
+                className="input"
+                placeholder="VD: Đ/c Nguyễn Văn A chủ trì cuộc họp"
+              />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
                 <label className="text-xs text-inksoft mb-1 block">Bắt đầu</label>
@@ -223,18 +235,6 @@ export default function TabInfo({
                 onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
                 className="input"
                 placeholder="VD: Phòng họp A, tầng 3 hoặc đường link Zoom/Google Meet"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-inksoft mb-1 block">
-                Tham dự cuộc họp (Người được cử tham dự cuộc họp)
-              </label>
-              <textarea
-                value={form.summary}
-                onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))}
-                rows={3}
-                className="input"
-                placeholder="VD: Đ/c Nguyễn Văn A chủ trì cuộc họp"
               />
             </div>
             {editError && <p className="text-sm text-red">{editError}</p>}

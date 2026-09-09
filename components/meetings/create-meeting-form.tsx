@@ -272,7 +272,7 @@ export default function CreateMeetingForm({
         </div>
 
         <div>
-          <label className="text-sm font-medium block mb-1">Tham dự cuộc họp (Người được cử tham dự cuộc họp)</label>
+          <label className="text-sm font-medium block mb-1">Ghi chú (Hiển thị bên dưới tiêu đề cuộc họp)</label>
           <textarea
             name="summary"
             rows={3}
