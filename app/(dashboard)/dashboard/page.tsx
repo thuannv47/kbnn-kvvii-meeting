@@ -58,19 +58,27 @@ export default async function DashboardPage() {
     deptPermsByMeeting.set(row.meeting_id, arr);
   }
   const participantDeptsByMeeting = new Map<string, (string | null | undefined)[]>();
+  const participantCountByMeeting = new Map<string, number>();
   // Cuộc họp Ngoài ngành (EXTERNAL) không có khái niệm "liên quan theo phòng ban" —
-  // chỉ liên quan tới ĐÚNG người được cử tham dự đích danh. Gom riêng ra 1 tập
-  // meeting_id mà chính người dùng hiện tại có tên trong meeting_participants.
+  // chỉ liên quan tới ĐÚNG người được cử tham dự đích danh, HOẶC chính người đã
+  // tạo ra cuộc họp đó (VD: lãnh đạo nhận giấy mời rồi tạo cuộc họp để tag người
+  // khác đi thay — bản thân người tạo không tự tag mình nhưng vẫn phải thấy được
+  // trên Dashboard, khớp đúng quy tắc canViewMeeting() ở lib/permissions/index.ts).
+  // Gom riêng ra 1 tập meeting_id mà chính người dùng hiện tại có tên trong
+  // meeting_participants.
   const personalMeetingIds = new Set<string>();
   for (const row of (participants ?? []) as any[]) {
     const arr = participantDeptsByMeeting.get(row.meeting_id) ?? [];
     arr.push(row.profiles?.department_id ?? null);
     participantDeptsByMeeting.set(row.meeting_id, arr);
+    participantCountByMeeting.set(row.meeting_id, (participantCountByMeeting.get(row.meeting_id) ?? 0) + 1);
     if (row.user_id === profile.id) personalMeetingIds.add(row.meeting_id);
   }
 
   const relevantUpcoming = upcoming.filter((m) => {
-    if (m.meeting_type === 'EXTERNAL') return personalMeetingIds.has(m.id);
+    if (m.meeting_type === 'EXTERNAL') {
+      return personalMeetingIds.has(m.id) || m.created_by === profile.id;
+    }
     return isMeetingRelevantToDepartment(m, profile.department_id, {
       meetingDepartments: deptPermsByMeeting.get(m.id) ?? [],
       participantDepartmentIds: participantDeptsByMeeting.get(m.id) ?? []
@@ -131,41 +139,67 @@ export default async function DashboardPage() {
                 href={`/meetings/${m.id}`}
                 className="card block p-4 hover:border-gold/40 transition-colors"
               >
-                <div className="flex items-start gap-3">
-                  <span className="icon-tile-peach flex-shrink-0">
-                    <IconCalendar size={22} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold leading-snug">{m.title}</h3>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <span className="icon-tile-peach flex-shrink-0">
+                      <IconCalendar size={22} />
+                    </span>
+                    <h3 className="font-semibold leading-snug min-w-0">{m.title}</h3>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <MeetingStatusBadge meeting={m} now={now} />
                   </div>
                 </div>
 
                 <div className="border-t border-line my-3" />
 
-                <dl className="space-y-1.5 text-sm">
-                  <div className="flex items-baseline gap-1.5">
-                    <dt className="text-inksoft flex-shrink-0">Ngày:</dt>
-                    <dd className="font-medium">{formatDateVN(m.start_at)}</dd>
+                <div className="text-sm space-y-1.5">
+                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                    <span className="text-inksoft flex-shrink-0">Thời gian từ:</span>
+                    <span>
+                      
+                      <span className="font-medium">{formatDateVN(m.start_at)}</span>
+                    </span>
+                    <span>
+                      <span className="text-inksoft">Bắt đầu:</span>{' '}
+                      <span className="font-medium">{formatTimeVN(m.start_at)}</span>
+                    </span>
+                    <span>
+                      <span className="text-inksoft">Kết thúc:</span>{' '}
+                      <span className="font-medium">{formatTimeVN(m.end_at)}</span>
+                    </span>
                   </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <dt className="text-inksoft flex-shrink-0">Thời gian từ:</dt>
-                    <dd className="font-medium">{formatTimeVN(m.start_at)}</dd>
+                  <div>
+                    <span className="text-inksoft">Cuộc họp:</span>{' '}
+                    <span className="font-medium">
+                      {m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ'}
+                    </span>
                   </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <dt className="text-inksoft flex-shrink-0">Kết thúc:</dt>
-                    <dd className="font-medium">{formatTimeVN(m.end_at)}</dd>
-                  </div>
-                  {m.summary && (
-                    <div className="flex items-baseline gap-1.5">
-                      <dt className="text-inksoft flex-shrink-0">Lãnh đạo tham dự:</dt>
-                      <dd className="font-medium">{m.summary}</dd>
-                    </div>
+                  {m.meeting_type === 'EXTERNAL' ? (
+                    <>
+                      <div>
+                        <span className="text-inksoft">Địa điểm:</span>{' '}
+                        <span className="font-medium">{m.location || '— chưa xác định'}</span>
+                      </div>
+                      <div>
+                        <span className="text-inksoft">Người được cử tham dự:</span>{' '}
+                        <span className="font-medium">({participantCountByMeeting.get(m.id) ?? 0})</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {m.summary && (
+                        <div>
+                          <span className="text-inksoft">Lãnh đạo tham dự:</span>{' '}
+                          <span className="font-medium">{m.summary}</span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-inksoft">Địa điểm:</span>{' '}
+                        <span className="font-medium">{m.location || '— chưa xác định'}</span>
+                      </div>
+                    </>
                   )}
-                </dl>
-
-                {/* Thay cho nút hành động (VD "Báo vắng") — hiển thị trạng thái thực tế của cuộc họp */}
-                <div className="mt-3 pt-3 border-t border-line">
-                  <MeetingStatusBadge meeting={m} now={now} />
                 </div>
               </Link>
             ))}
