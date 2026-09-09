@@ -4,7 +4,6 @@ import { createServerSupabase } from '@/lib/supabase/server';
 import { canManageOrg } from '@/lib/permissions';
 import { getMeetingDisplayStatus } from '@/lib/meetings/status';
 import { isMeetingRelevantToDepartment, sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
-import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
 import DashboardBanner from '@/components/dashboard/dashboard-banner';
 import type { Meeting } from '@/types/meeting';
 import { IconCalendar, IconClock, IconSearch, IconBuilding, IconUser, IconUsers, IconShield } from '@/components/ui/icons';
@@ -139,16 +138,11 @@ export default async function DashboardPage() {
                 href={`/meetings/${m.id}`}
                 className="card block p-4 hover:border-gold/40 transition-colors"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <span className="icon-tile-peach flex-shrink-0">
-                      <IconCalendar size={22} />
-                    </span>
-                    <h3 className="font-semibold leading-snug min-w-0">{m.title}</h3>
-                  </div>
-                  <div className="flex-shrink-0">
-                    <MeetingStatusBadge meeting={m} now={now} />
-                  </div>
+                <div className="flex items-start gap-3">
+                  <span className="icon-tile-peach flex-shrink-0">
+                    <IconCalendar size={22} />
+                  </span>
+                  <h3 className="font-semibold leading-snug min-w-0">{m.title}</h3>
                 </div>
 
                 <div className="border-t border-line my-3" />
