@@ -1,6 +1,22 @@
 export type MeetingStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'ARCHIVED';
 export type MeetingType = 'INTERNAL' | 'EXTERNAL';
 
+/**
+ * Hàng dữ liệu trả về từ RPC meetings_overview() — dùng cho tab "Thông tin
+ * cuộc họp" (bảng tin gộp nội bộ + ngoài ngành, tính năng chưa triển khai).
+ * Khai báo sẵn ở đây để build không lỗi do component đã import type này.
+ */
+export interface MeetingOverviewRow {
+  id: string;
+  title: string;
+  meeting_type: MeetingType;
+  status: MeetingStatus;
+  host_department_name: string | null;
+  location: string | null;
+  start_at: string;
+  end_at: string;
+}
+
 export interface Meeting {
   id: string;
   code: string;
