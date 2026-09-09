@@ -7,7 +7,7 @@ import { isMeetingRelevantToDepartment, sortMeetingsByStartThenTitle } from '@/l
 import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
 import DashboardBanner from '@/components/dashboard/dashboard-banner';
 import type { Meeting } from '@/types/meeting';
-import { IconCalendar, IconSearch, IconBuilding, IconUser, IconUsers, IconShield } from '@/components/ui/icons';
+import { IconCalendar, IconClock, IconSearch, IconBuilding, IconUser, IconUsers, IconShield } from '@/components/ui/icons';
 import { formatDateVN, formatTimeVN } from '@/lib/format-date';
 
 export default async function DashboardPage() {
@@ -153,53 +153,53 @@ export default async function DashboardPage() {
 
                 <div className="border-t border-line my-3" />
 
-                <div className="text-sm space-y-1.5">
-                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                    <span className="text-inksoft flex-shrink-0">Thời gian từ:</span>
-                    <span>
-                      
-                      <span className="font-medium">{formatDateVN(m.start_at)}</span>
-                    </span>
-                    <span>
-                      <span className="text-inksoft">Bắt đầu:</span>{' '}
-                      <span className="font-medium">{formatTimeVN(m.start_at)}</span>
-                    </span>
-                    <span>
-                      <span className="text-inksoft">Kết thúc:</span>{' '}
-                      <span className="font-medium">{formatTimeVN(m.end_at)}</span>
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-inksoft">Cuộc họp:</span>{' '}
+                <div className="text-sm">
+                  <div className="flex items-center gap-1.5 mb-2.5">
+                    <IconCalendar size={15} className="text-inksoft flex-shrink-0" />
+                    <span className="font-medium">{formatDateVN(m.start_at)}</span>
+                    <span className="w-[3px] h-[3px] rounded-full bg-line mx-0.5 flex-shrink-0" />
+                    <IconClock size={15} className="text-inksoft flex-shrink-0" />
                     <span className="font-medium">
-                      {m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ'}
+                      {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
+                      {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  {m.meeting_type === 'EXTERNAL' ? (
-                    <>
-                      <div>
-                        <span className="text-inksoft">Địa điểm:</span>{' '}
-                        <span className="font-medium">{m.location || '— chưa xác định'}</span>
-                      </div>
-                      <div>
-                        <span className="text-inksoft">Người được cử tham dự:</span>{' '}
-                        <span className="font-medium">({participantCountByMeeting.get(m.id) ?? 0})</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {m.summary && (
-                        <div>
-                          <span className="text-inksoft">Lãnh đạo tham dự:</span>{' '}
-                          <span className="font-medium">{m.summary}</span>
+
+                  <div className="space-y-1.5">
+                    <div className="flex gap-2">
+                      <span className="text-inksoft flex-shrink-0 w-[92px]">Cuộc họp</span>
+                      <span className="font-medium">
+                        {m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ'}
+                      </span>
+                    </div>
+                    {m.meeting_type === 'EXTERNAL' ? (
+                      <>
+                        <div className="flex gap-2">
+                          <span className="text-inksoft flex-shrink-0 w-[92px]">Địa điểm</span>
+                          <span className="font-medium">{m.location || '— chưa xác định'}</span>
                         </div>
-                      )}
-                      <div>
-                        <span className="text-inksoft">Địa điểm:</span>{' '}
-                        <span className="font-medium">{m.location || '— chưa xác định'}</span>
-                      </div>
-                    </>
-                  )}
+                        <div className="flex gap-2">
+                          <span className="text-inksoft flex-shrink-0 w-[92px]">Được cử đi</span>
+                          <span className="font-medium">
+                            {participantCountByMeeting.get(m.id) ?? 0} người
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {m.summary && (
+                          <div className="flex gap-2">
+                            <span className="text-inksoft flex-shrink-0 w-[92px]">Lãnh đạo</span>
+                            <span className="font-medium">{m.summary}</span>
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <span className="text-inksoft flex-shrink-0 w-[92px]">Địa điểm</span>
+                          <span className="font-medium">{m.location || '— chưa xác định'}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </Link>
             ))}
