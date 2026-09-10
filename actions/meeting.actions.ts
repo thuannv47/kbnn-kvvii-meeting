@@ -6,6 +6,7 @@ import { createServerSupabase } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/auth/current-user';
 import { canCreateMeeting, canHostDepartment, canManageMeeting, canDeleteMeeting, canDeleteMeetingAsThuky } from '@/lib/permissions';
 import { logAudit } from '@/lib/audit/log';
+import { sendPushToUsers } from '@/lib/push/send';
 
 const createMeetingSchema = z.object({
   title: z.string().min(3, 'Tiêu đề tối thiểu 3 ký tự'),
@@ -130,6 +131,16 @@ export async function createMeetingAction(input: z.infer<typeof createMeetingSch
       assigned_by: authId
     }));
     await supabase.from('meeting_participants').insert(rows);
+
+    // Chỉ báo ngay nếu cuộc họp mở luôn ở trạng thái OPEN. Nếu tạo ở dạng Nháp,
+    // thông báo sẽ được gửi sau, vào lúc Thư ký/BGD "Duyệt tạo" (xem updateMeetingStatusAction).
+    if (data.status === 'OPEN') {
+      await sendPushToUsers(data.participant_user_ids, {
+        title: 'Bạn được cử tham dự cuộc họp mới',
+        body: meeting.title,
+        url: `/meetings/${meeting.id}`
+      });
+    }
   }
 
   await logAudit({
@@ -158,6 +169,24 @@ export async function updateMeetingStatusAction(meetingId: string, status: 'DRAF
 
   const { error } = await supabase.from('meetings').update({ status }).eq('id', meetingId);
   if (error) return { error: error.message };
+
+  // Nếu vừa Duyệt tạo (Nháp -> Mở), báo cho những người được cử tham dự riêng lẻ
+  // (meeting_participants) — trường hợp cuộc họp được tạo ở dạng Nháp trước đó nên
+  // chưa được báo lúc tạo (xem createMeetingAction).
+  if (status === 'OPEN' && meeting.status === 'DRAFT') {
+    const { data: participants } = await supabase
+      .from('meeting_participants')
+      .select('user_id')
+      .eq('meeting_id', meetingId);
+    const userIds = (participants ?? []).map((p) => p.user_id).filter(Boolean);
+    if (userIds.length > 0) {
+      await sendPushToUsers(userIds, {
+        title: 'Cuộc họp bạn được cử tham dự đã được duyệt',
+        body: meeting.title,
+        url: `/meetings/${meetingId}`
+      });
+    }
+  }
 
   await logAudit({ userId: authId, action: `SET_MEETING_${status}`, entityType: 'meeting', entityId: meetingId });
   revalidatePath(`/meetings/${meetingId}`);

@@ -6,6 +6,7 @@ import RoleBadge from '@/components/ui/role-badge';
 import ChangePasswordForm from '@/components/dashboard/change-password-form';
 import LogoutButton from '@/components/dashboard/logout-button';
 import PageHeader from '@/components/dashboard/page-header';
+import PushSubscribeButton from '@/components/notifications/push-subscribe-button';
 import {
   IconUser,
   IconCamera,
@@ -106,6 +107,9 @@ export default async function AccountPage() {
           </Link>
         ))}
       </div>
+
+      {/* Thông báo đẩy — bật để nhận thông báo khi được cử tham dự cuộc họp mới */}
+      <PushSubscribeButton />
 
       {/* Cài đặt */}
       <div className="space-y-3">

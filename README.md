@@ -84,6 +84,12 @@ B2_ENDPOINT=https://s3.us-west-004.backblazeb2.com
 B2_REGION=us-west-004
 
 NEXT_PUBLIC_APP_URL=https://hop.congty.vn
+
+# Thông báo đẩy (Web Push) — báo cho người dùng khi được cử tham dự cuộc họp mới.
+# Tạo cặp khoá bằng lệnh (chạy trong thư mục dự án): npx web-push generate-vapid-keys
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...                  # giữ bí mật tuyệt đối, chỉ dùng ở server
+VAPID_SUBJECT=mailto:admin@kbnn-kvvii.gov.vn
 ```
 
 ## 5. Chạy local
