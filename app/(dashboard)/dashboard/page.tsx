@@ -5,7 +5,6 @@ import { canManageOrg } from '@/lib/permissions';
 import { getMeetingDisplayStatus } from '@/lib/meetings/status';
 import { isMeetingRelevantToDepartment, sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
 import DashboardBanner from '@/components/dashboard/dashboard-banner';
-import MiniCalendar from '@/components/dashboard/mini-calendar';
 import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
 import type { Meeting } from '@/types/meeting';
 import { IconCalendar, IconClock, IconSearch, IconBuilding, IconUser, IconUsers, IconShield } from '@/components/ui/icons';
@@ -103,10 +102,6 @@ export default async function DashboardPage() {
   const monthDone = monthMeetings.filter((m) => getMeetingDisplayStatus(m, now).key === 'DONE').length;
   const monthUpcoming = monthMeetings.length - monthDone;
 
-  // Lịch mini: đánh dấu ngày có cuộc họp liên quan (mọi trạng thái, không riêng tháng này,
-  // component tự lọc theo tháng đang xem).
-  const meetingDatesForCalendar = relevantAll.map((m) => m.start_at);
-
   const quickLinks = [
     { href: '/meetings/create', icon: IconCalendar, label: 'Tạo cuộc họp', desc: 'Lên lịch và mời thành viên tham dự', tile: 'icon-tile-rose' as const },
     { href: '/meetings', icon: IconUsers, label: 'Cuộc họp của tôi', desc: 'Xem danh sách các cuộc họp liên quan', tile: 'icon-tile-violet' as const },
@@ -123,13 +118,6 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <DashboardBanner profile={profile} departmentName={dept?.name} />
-
-      <div>
-        <h1 className="text-2xl">Chào mừng bạn trở lại!</h1>
-        <p className="text-inksoft text-sm mt-0.5">
-          Hệ thống Phòng họp không giấy tờ — {dept?.name ?? 'Kho bạc Nhà nước KVII'}
-        </p>
-      </div>
 
       {/* Lưới truy cập nhanh — card lớn có mô tả, khớp bản mẫu */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -247,10 +235,8 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Cột phụ — lịch mini + thống kê + trích dẫn */}
+        {/* Cột phụ — thống kê */}
         <div className="space-y-4">
-          <MiniCalendar meetingDates={meetingDatesForCalendar} />
-
           <div className="card p-4">
             <h3 className="font-semibold text-sm mb-3">Thống kê cuộc họp trong tháng</h3>
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -267,11 +253,6 @@ export default async function DashboardPage() {
                 <div className="text-[10.5px] text-inksoft mt-0.5 leading-tight">Sắp diễn ra</div>
               </div>
             </div>
-          </div>
-
-          <div className="card p-4 text-center italic text-[13px] text-inksoft leading-relaxed">
-            "Chuyển đổi số là động lực quan trọng để nâng cao hiệu quả hoạt động của Kho bạc Nhà nước."
-            <div className="not-italic text-[11px] font-semibold text-gold mt-2">— KHO BẠC NHÀ NƯỚC</div>
           </div>
         </div>
       </div>
