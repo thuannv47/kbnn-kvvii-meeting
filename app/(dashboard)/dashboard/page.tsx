@@ -131,42 +131,42 @@ export default async function DashboardPage() {
                   <Link
                     key={m.id}
                     href={`/meetings/${m.id}`}
-                    className="relative card p-4 hover:border-gold/40 transition-colors w-full flex-shrink-0 snap-center"
+                    className="relative card p-5 hover:border-gold/40 transition-colors w-full flex-shrink-0 snap-center"
                   >
                     <span className="absolute -top-3 left-3 z-10 flex items-center justify-center w-9 h-9 rounded-xl bg-sky-500 text-white text-sm font-bold shadow-sm ring-2 ring-white">
                       {idx + 1}
                     </span>
 
-                    <div className="flex items-center gap-3.5">
-                      <div className="icon-tile-rose flex-col leading-none flex-shrink-0">
-                        <span className="text-2xl font-bold">{d.getDate()}</span>
-                        <span className="text-[11px] font-bold uppercase mt-0.5">
+                    <div className="flex items-start gap-4">
+                      <div className="icon-tile-rose w-16 h-16 flex-col leading-none flex-shrink-0">
+                        <span className="text-3xl font-bold">{d.getDate()}</span>
+                        <span className="text-xs font-bold uppercase mt-0.5">
                           Th{String(d.getMonth() + 1).padStart(2, '0')}
                         </span>
                       </div>
-                      <h3 className="min-w-0 flex-1 font-display text-lg font-bold leading-snug text-ink line-clamp-2">
+                      <h3 className="min-w-0 flex-1 font-display text-xl font-bold leading-snug text-ink">
                         {m.title}
                       </h3>
                     </div>
 
-                    <div className="border-t border-line my-3.5" />
+                    <div className="border-t border-line my-4" />
 
-                    <div className="space-y-2.5 text-sm">
-                      <div className="flex items-center gap-2">
-                        <IconClock size={18} className="flex-shrink-0 text-inksoft" />
+                    <div className="space-y-3 text-base">
+                      <div className="flex items-center gap-2.5">
+                        <IconClock size={20} className="flex-shrink-0 text-inksoft" />
                         <span className="font-medium">
                           {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
                           {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <IconPin size={18} className="flex-shrink-0 text-inksoft" />
-                        <span className="font-medium truncate">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <IconPin size={20} className="flex-shrink-0 text-inksoft mt-0.5" />
+                        <span className="font-medium break-words">
                           {m.location || (m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ')}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <IconUsers size={18} className="flex-shrink-0 text-inksoft" />
+                      <div className="flex items-center gap-2.5">
+                        <IconUsers size={20} className="flex-shrink-0 text-inksoft" />
                         <span className="font-medium">
                           {participantCountByMeeting.get(m.id) ?? 0} người tham dự
                         </span>
