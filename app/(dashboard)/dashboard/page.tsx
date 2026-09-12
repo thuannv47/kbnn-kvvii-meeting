@@ -127,7 +127,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardBanner profile={profile} departmentName={dept?.name} />
+      <DashboardBanner profile={profile} departmentName={dept?.name} relatedMeetingCount={highlightList.length} />
 
       <div className="hidden md:block">
         <h1 className="text-2xl">Trang chủ</h1>

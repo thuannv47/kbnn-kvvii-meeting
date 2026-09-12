@@ -8,6 +8,7 @@ import LogoutButton from '@/components/dashboard/logout-button';
 import {
   IconHome,
   IconCalendar,
+  IconCalendarDays,
   IconSearch,
   IconBuilding,
   IconUser,
@@ -29,7 +30,14 @@ export default function SidebarNav({
 
       <nav className="flex-1 space-y-0.5">
         <NavItem href="/dashboard" icon={<IconHome size={18} />} label="Trang chủ" pathname={pathname} />
-        <NavItem href="/meetings" icon={<IconCalendar size={18} />} label="Cuộc họp" pathname={pathname} />
+        <NavItem
+          href="/meetings"
+          icon={<IconCalendar size={18} />}
+          label="Cuộc họp"
+          pathname={pathname}
+          excludePrefixes={['/meetings/calendar']}
+        />
+        <NavItem href="/meetings/calendar" icon={<IconCalendarDays size={18} />} label="Lịch họp" pathname={pathname} />
         <NavItem href="/search" icon={<IconSearch size={18} />} label="Tìm kiếm" pathname={pathname} />
         <NavItem href="/departments" icon={<IconBuilding size={18} />} label="Phòng ban" pathname={pathname} />
         <NavItem href="/account" icon={<IconUser size={18} />} label="Tài khoản" pathname={pathname} />
@@ -63,16 +71,22 @@ function NavItem({
   href,
   icon,
   label,
-  pathname
+  pathname,
+  excludePrefixes
 }: {
   href: string;
   icon: React.ReactNode;
   label: string;
   pathname: string;
+  /** Các tiền tố KHÔNG tính là active cho mục này (VD: "/meetings" không sáng khi
+   *  đang ở "/meetings/calendar", vì đường dẫn đó đã có mục "Lịch họp" riêng). */
+  excludePrefixes?: string[];
 }) {
   // "/admin" phải khớp chính xác hoặc là tiền tố có dấu "/" theo sau,
   // để không lỡ tô sáng nhầm mục khác có tiền tố trùng.
-  const active = pathname === href || pathname.startsWith(`${href}/`);
+  const matchesHref = pathname === href || pathname.startsWith(`${href}/`);
+  const isExcluded = excludePrefixes?.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? false;
+  const active = matchesHref && !isExcluded;
 
   return (
     <Link

@@ -9,10 +9,13 @@ import { IconUser, IconBell } from '@/components/ui/icons';
  */
 export default function DashboardBanner({
   profile,
-  departmentName
+  departmentName,
+  relatedMeetingCount = 0
 }: {
   profile: Profile;
   departmentName?: string | null;
+  /** Số cuộc họp đang/sắp diễn ra liên quan đến người này — hiện thành huy hiệu đỏ trên chuông. */
+  relatedMeetingCount?: number;
 }) {
   return (
     <div className="md:hidden -mx-4 -mt-5 mb-5 px-4 pt-4 pb-4 banner-brand">
@@ -27,9 +30,15 @@ export default function DashboardBanner({
           </div>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
-          {/* Placeholder cho tính năng thông báo trong tương lai — hiện chưa nối API */}
-          <Link href="/account" className="p-1.5 -m-1.5 text-white/85" aria-label="Thông báo">
+          {/* Huy hiệu = số cuộc họp đang/sắp diễn ra liên quan đến người này (trùng số liệu
+              mục "Cuộc họp sắp diễn ra" bên dưới) — bấm vào dẫn thẳng tới Lịch họp để xem. */}
+          <Link href="/meetings/calendar" className="relative p-1.5 -m-1.5 text-white/85" aria-label="Lịch họp">
             <IconBell size={19} />
+            {relatedMeetingCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                {relatedMeetingCount > 99 ? '99+' : relatedMeetingCount}
+              </span>
+            )}
           </Link>
           <Link href="/account" className="flex items-center gap-2 min-w-0">
             <span className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0">
