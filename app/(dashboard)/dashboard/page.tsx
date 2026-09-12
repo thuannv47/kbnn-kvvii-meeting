@@ -1,14 +1,13 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
-import { canManageOrg } from '@/lib/permissions';
 import { getMeetingDisplayStatus } from '@/lib/meetings/status';
 import { isMeetingRelevantToDepartment, sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
 import DashboardBanner from '@/components/dashboard/dashboard-banner';
 import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
 import type { Meeting } from '@/types/meeting';
-import { IconCalendar, IconClock, IconSearch, IconBuilding, IconUser, IconUsers, IconShield, IconPin, IconChevronRight } from '@/components/ui/icons';
-import { formatDateVN, formatTimeVN } from '@/lib/format-date';
+import { IconClock, IconUsers, IconPin, IconChevronRight } from '@/components/ui/icons';
+import { formatTimeVN } from '@/lib/format-date';
 
 export default async function DashboardPage() {
   const { profile } = await requireUser();
@@ -86,12 +85,6 @@ export default async function DashboardPage() {
     );
   })();
 
-  // Mục "Cuộc họp gần đây": đã kết thúc, mới nhất trước, tối đa 5 dòng.
-  const recentList = sortMeetingsByStartThenTitle(
-    relevantAll.filter((m) => getMeetingDisplayStatus(m, now).key === 'DONE'),
-    'desc'
-  ).slice(0, 5);
-
   // Thống kê nhanh trong THÁNG HIỆN TẠI (theo start_at) — TÍNH RIÊNG bằng 1 query
   // khác, KHÔNG dùng relevantAll và KHÔNG áp điều kiện visible_until, để khớp
   // đúng với những gì người dùng thấy ở trang "Tìm kiếm lịch sử" (chỉ giới hạn
@@ -112,37 +105,12 @@ export default async function DashboardPage() {
   const monthDone = monthMeetings.filter((m) => getMeetingDisplayStatus(m, now).key === 'DONE').length;
   const monthUpcoming = monthMeetings.length - monthDone;
 
-  const quickLinks = [
-    { href: '/meetings', icon: IconCalendar, label: 'Cuộc họp', tile: 'icon-tile-peach' as const },
-    { href: '/search', icon: IconSearch, label: 'Tìm kiếm', tile: 'icon-tile-violet' as const },
-    { href: '/departments', icon: IconBuilding, label: 'Phòng ban', tile: 'icon-tile-rose' as const },
-    { href: '/account', icon: IconUser, label: 'Tài khoản', tile: 'icon-tile-slate' as const },
-    ...(canManageOrg(profile)
-      ? [
-          { href: '/users', icon: IconUsers, label: 'Người dùng', tile: 'icon-tile-amber' as const },
-          { href: '/admin', icon: IconShield, label: 'Quản trị / Audit', tile: 'icon-tile-indigo' as const }
-        ]
-      : [])
-  ];
-
   return (
     <div className="space-y-6">
       <DashboardBanner profile={profile} departmentName={dept?.name} relatedMeetingCount={highlightList.length} />
 
       <div className="hidden md:block">
         <h1 className="text-2xl">Trang chủ</h1>
-      </div>
-
-      {/* Lưới truy cập nhanh — khớp bố cục bản mẫu (4 icon/hàng) */}
-      <div className="grid grid-cols-4 gap-4">
-        {quickLinks.map(({ href, icon: Icon, label, tile }) => (
-          <Link key={label} href={href} className="flex flex-col items-center gap-2 text-center">
-            <span className={tile}>
-              <Icon size={24} />
-            </span>
-            <span className="text-[11.5px] leading-tight text-ink">{label}</span>
-          </Link>
-        ))}
       </div>
 
       <div>
@@ -201,49 +169,6 @@ export default async function DashboardPage() {
                 </Link>
               );
             })}
-          </div>
-        )}
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-2.5">
-          <h2 className="font-semibold">Cuộc họp gần đây</h2>
-          <Link href="/search" className="text-sm text-gold font-medium">
-            Xem tất cả →
-          </Link>
-        </div>
-        {recentList.length === 0 ? (
-          <p className="table-empty card">Chưa có cuộc họp nào đã kết thúc.</p>
-        ) : (
-          <div className="table-wrap">
-            <table className="table-clean">
-              <thead>
-                <tr>
-                  <th>Thời gian</th>
-                  <th>Tên cuộc họp</th>
-                  <th className="hidden sm:table-cell">Trạng thái</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {recentList.map((m) => (
-                  <tr key={m.id} className="row-click">
-                    <td className="whitespace-nowrap text-inksoft">
-                      {formatDateVN(m.start_at)} {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                    <td className="font-medium max-w-[240px] truncate">{m.title}</td>
-                    <td className="hidden sm:table-cell">
-                      <MeetingStatusBadge meeting={m} now={now} />
-                    </td>
-                    <td className="text-right">
-                      <Link href={`/meetings/${m.id}`} className="text-gold font-medium">
-                        Xem
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         )}
       </div>
