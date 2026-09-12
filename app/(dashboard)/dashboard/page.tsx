@@ -7,7 +7,7 @@ import { isMeetingRelevantToDepartment, sortMeetingsByStartThenTitle } from '@/l
 import DashboardBanner from '@/components/dashboard/dashboard-banner';
 import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
 import type { Meeting } from '@/types/meeting';
-import { IconCalendar, IconClock, IconSearch, IconBuilding, IconUser, IconUsers, IconShield } from '@/components/ui/icons';
+import { IconCalendar, IconClock, IconSearch, IconBuilding, IconUser, IconUsers, IconShield, IconPin, IconChevronRight } from '@/components/ui/icons';
 import { formatDateVN, formatTimeVN } from '@/lib/format-date';
 
 export default async function DashboardPage() {
@@ -163,32 +163,40 @@ export default async function DashboardPage() {
                 <Link
                   key={m.id}
                   href={`/meetings/${m.id}`}
-                  className="card flex items-stretch gap-3.5 p-3.5 hover:border-gold/40 transition-colors"
+                  className="card flex items-start gap-3.5 p-3.5 hover:border-gold/40 transition-colors"
                 >
                   <div className="icon-tile-rose flex-col leading-none flex-shrink-0">
-                    <span className="text-[10px] font-semibold uppercase -mb-0.5">
+                    <span className="text-lg font-bold">{d.getDate()}</span>
+                    <span className="text-[10px] font-semibold uppercase mt-0.5">
                       Th{String(d.getMonth() + 1).padStart(2, '0')}
                     </span>
-                    <span className="text-lg font-bold">{d.getDate()}</span>
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold leading-snug text-sm truncate">{m.title}</h3>
-                      <span className="flex-shrink-0">
-                        <MeetingStatusBadge meeting={m} now={now} />
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-1.5 text-xs text-inksoft flex-wrap">
+                    <div className="flex items-center gap-1.5 text-xs text-inksoft">
                       <IconClock size={13} className="flex-shrink-0" />
                       {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
                       {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
-                      <span className="w-[3px] h-[3px] rounded-full bg-line mx-0.5 flex-shrink-0" />
-                      {m.location || (m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ')}
                     </div>
-                    <div className="text-xs text-inksoft mt-1">
-                      Số lượng: {participantCountByMeeting.get(m.id) ?? 0} người
+                    <h3 className="font-semibold leading-snug text-sm mt-1 truncate">{m.title}</h3>
+                    <div className="flex items-center gap-1.5 mt-1.5 text-xs text-inksoft min-w-0">
+                      <IconPin size={13} className="flex-shrink-0" />
+                      <span className="truncate">
+                        {m.location || (m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ')}
+                      </span>
                     </div>
+                    <div className="flex items-center gap-1.5 mt-1 text-xs text-inksoft">
+                      <IconUsers size={13} className="flex-shrink-0" />
+                      {participantCountByMeeting.get(m.id) ?? 0} người tham dự
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end justify-between gap-2 flex-shrink-0 self-stretch">
+                    <MeetingStatusBadge meeting={m} now={now} />
+                    <span className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-full border border-red/30 text-red text-[11px] font-semibold px-3 py-1.5">
+                      Xem chi tiết
+                      <IconChevronRight size={12} />
+                    </span>
                   </div>
                 </Link>
               );
