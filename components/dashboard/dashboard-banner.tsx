@@ -21,7 +21,7 @@ export default function DashboardBanner({
           <img src="/logo-kbnn.png" alt="" className="w-9 h-9 rounded-full bg-white/10 object-contain p-0.5 flex-shrink-0" />
           <div className="min-w-0">
             <div className="text-[10px] font-semibold uppercase tracking-wide text-white/70 truncate">
-              Kho bạc Nhà nước KVII
+              Kho bạc Nhà nước KHU VỰC VII
             </div>
             <div className="text-[13px] font-bold leading-tight truncate">Phòng họp không giấy tờ</div>
           </div>
