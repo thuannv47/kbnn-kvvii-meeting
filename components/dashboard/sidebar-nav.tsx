@@ -24,31 +24,10 @@ export default function SidebarNav({
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex md:flex-col relative overflow-hidden bg-navy text-paper">
-      {/* Hoạ tiết trang trí mờ phía dưới sidebar — cùng tinh thần hoa sen của bản mẫu,
-          chỉ dùng CSS radial-gradient nên không cần thêm ảnh. */}
-      <div
-        className="pointer-events-none absolute -bottom-16 -left-10 w-56 h-56 rounded-full opacity-[0.07]"
-        style={{ background: 'radial-gradient(circle, #fff 0%, transparent 70%)' }}
-        aria-hidden
-      />
+    <aside className="hidden md:flex md:flex-col bg-navy text-paper px-4 py-6">
+      <div className="font-display text-white font-semibold mb-6 px-2">Phòng họp không giấy tờ</div>
 
-      <div className="relative flex items-center gap-3 px-5 pt-6 pb-5 border-b border-white/10">
-        <img src="/logo-kbnn.png" alt="" className="w-11 h-11 rounded-full bg-white/10 object-contain p-1 flex-shrink-0" />
-        <div className="min-w-0">
-          <div className="text-[10.5px] font-semibold uppercase tracking-wide text-white/70 truncate">
-            Kho bạc Nhà nước KVII
-          </div>
-          <div className="font-display text-white font-bold leading-tight text-[15px]">
-            Phòng họp không giấy tờ
-          </div>
-        </div>
-      </div>
-      <p className="relative px-5 pt-3 pb-1 text-[11px] text-white/55 tracking-wide">
-        Hiện đại · Hiệu quả · Kết nối
-      </p>
-
-      <nav className="relative flex-1 px-3 py-3 space-y-0.5">
+      <nav className="flex-1 space-y-0.5">
         <NavItem href="/dashboard" icon={<IconHome size={18} />} label="Trang chủ" pathname={pathname} />
         <NavItem href="/meetings" icon={<IconCalendar size={18} />} label="Cuộc họp" pathname={pathname} />
         <NavItem href="/search" icon={<IconSearch size={18} />} label="Tìm kiếm" pathname={pathname} />
@@ -62,22 +41,14 @@ export default function SidebarNav({
         )}
       </nav>
 
-      <div className="relative border-t border-white/10 p-4">
-        <Link
-          href="/account"
-          className="flex items-center gap-3 rounded-xl bg-white/[0.06] hover:bg-white/10 transition-colors p-3"
-        >
-          <span className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0 text-white">
-            <IconUser size={17} />
-          </span>
-          <div className="min-w-0">
-            <div className="text-white text-sm font-semibold truncate">{profile.full_name}</div>
-            <div className="text-paper/60 text-[11px] truncate">
-              {profile.position || '—'} {departmentName ? `· ${departmentName}` : ''}
-            </div>
+      <div className="border-t border-white/10 pt-4 mt-4">
+        <Link href="/account" className="block hover:opacity-80 transition-opacity">
+          <div className="text-white text-sm font-medium">{profile.full_name}</div>
+          <div className="text-paper/60 text-xs mb-2">
+            {profile.position || '—'} {departmentName ? `· ${departmentName}` : ''}
           </div>
         </Link>
-        <div className="mt-2.5 space-y-1.5 px-1">
+        <div className="mt-3 space-y-1.5">
           <Link href="/account" className="block text-xs text-paper/85 underline hover:text-white">
             Tài khoản / Đổi mật khẩu
           </Link>
@@ -109,10 +80,11 @@ function NavItem({
       aria-current={active ? 'page' : undefined}
       className={`relative flex items-center gap-2.5 pl-3 pr-3 py-2.5 rounded-lg text-sm transition-colors ${
         active
-          ? 'bg-white text-navy font-semibold'
+          ? 'bg-white/10 text-white font-semibold'
           : 'text-paper/85 hover:bg-white/10 hover:text-white'
       }`}
     >
+      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-gold" />}
       <span className={active ? 'opacity-100' : 'opacity-80'}>{icon}</span>
       <span>{label}</span>
     </Link>
