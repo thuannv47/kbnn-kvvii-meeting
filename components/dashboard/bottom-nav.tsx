@@ -15,10 +15,17 @@ const items = [
 export default function BottomNav() {
   const pathname = usePathname();
 
+  // Tìm tab khớp CỤ THỂ NHẤT với đường dẫn hiện tại (href dài nhất trong số các
+  // href khớp) — tránh trường hợp "/meetings/calendar" vừa khớp "/meetings"
+  // (Cuộc họp) vừa khớp "/meetings/calendar" (Lịch họp) khiến cả 2 tab cùng
+  // được tô màu active một lúc (bug trùng màu khi chuyển giữa 2 tab này).
+  const matching = items.filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+  const activeHref = matching.sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 bg-surface border-t border-line flex justify-around py-1.5 z-20">
       {items.map((item) => {
-        const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+        const active = item.href === activeHref;
         const Icon = item.icon;
         return (
           <Link

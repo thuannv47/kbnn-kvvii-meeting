@@ -132,7 +132,7 @@ export default async function DashboardPage() {
                   <Link
                     key={m.id}
                     href={`/meetings/${m.id}`}
-                    className="card flex items-start gap-3.5 p-3.5 hover:border-gold/40 transition-colors w-[87%] sm:w-[380px] flex-shrink-0 snap-center"
+                    className="card flex items-start gap-3.5 p-3.5 hover:border-gold/40 transition-colors w-full flex-shrink-0 snap-center"
                   >
                     <div className="icon-tile-rose flex-col leading-none flex-shrink-0">
                       <span className="text-lg font-bold">{d.getDate()}</span>
