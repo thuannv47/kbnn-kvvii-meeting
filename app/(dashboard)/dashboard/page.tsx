@@ -4,9 +4,8 @@ import { createServerSupabase } from '@/lib/supabase/server';
 import { getMeetingDisplayStatus } from '@/lib/meetings/status';
 import { isMeetingRelevantToDepartment, sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
 import DashboardBanner from '@/components/dashboard/dashboard-banner';
-import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
 import type { Meeting } from '@/types/meeting';
-import { IconClock, IconUsers, IconPin, IconChevronRight } from '@/components/ui/icons';
+import { IconClock, IconUsers, IconPin } from '@/components/ui/icons';
 import { formatTimeVN } from '@/lib/format-date';
 
 export default async function DashboardPage() {
@@ -115,7 +114,7 @@ export default async function DashboardPage() {
 
       <div>
         <div className="flex items-center justify-between mb-2.5">
-          <h2 className="font-semibold">Cuộc họp sắp diễn ra</h2>
+          <h2 className="font-semibold">Cuộc họp gần nhất</h2>
           <Link href="/meetings" className="text-sm text-gold font-medium">
             Xem tất cả →
           </Link>
@@ -125,51 +124,53 @@ export default async function DashboardPage() {
           <p className="table-empty card">Hiện không có cuộc họp nào đang/sắp diễn ra liên quan đến bạn.</p>
         ) : (
           <>
-            <div className="flex gap-3.5 overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 pt-2 pb-1">
+            <div className="flex gap-3.5 overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 pt-4 pb-1">
               {highlightList.map((m, idx) => {
                 const d = new Date(m.start_at);
                 return (
                   <Link
                     key={m.id}
                     href={`/meetings/${m.id}`}
-                    className="relative card flex items-start gap-3.5 p-3.5 hover:border-gold/40 transition-colors w-full flex-shrink-0 snap-center"
+                    className="relative card p-4 hover:border-gold/40 transition-colors w-full flex-shrink-0 snap-center"
                   >
-                    <span className="absolute -top-2 left-3 z-10 flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-md border-2 border-sky-500 bg-white text-[11px] font-bold text-sky-600">
+                    <span className="absolute -top-3 left-3 z-10 flex items-center justify-center w-9 h-9 rounded-xl bg-sky-500 text-white text-sm font-bold shadow-sm ring-2 ring-white">
                       {idx + 1}
                     </span>
 
-                    <div className="icon-tile-rose flex-col leading-none flex-shrink-0">
-                      <span className="text-lg font-bold">{d.getDate()}</span>
-                      <span className="text-[10px] font-semibold uppercase mt-0.5">
-                        Th{String(d.getMonth() + 1).padStart(2, '0')}
-                      </span>
+                    <div className="flex items-center gap-3.5">
+                      <div className="icon-tile-rose flex-col leading-none flex-shrink-0">
+                        <span className="text-2xl font-bold">{d.getDate()}</span>
+                        <span className="text-[11px] font-bold uppercase mt-0.5">
+                          Th{String(d.getMonth() + 1).padStart(2, '0')}
+                        </span>
+                      </div>
+                      <h3 className="min-w-0 flex-1 font-display text-lg font-bold leading-snug text-ink line-clamp-2">
+                        {m.title}
+                      </h3>
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 text-xs text-inksoft">
-                        <IconClock size={13} className="flex-shrink-0" />
-                        {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
-                        {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
+                    <div className="border-t border-line my-3.5" />
+
+                    <div className="space-y-2.5 text-sm">
+                      <div className="flex items-center gap-2">
+                        <IconClock size={18} className="flex-shrink-0 text-inksoft" />
+                        <span className="font-medium">
+                          {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
+                          {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
-                      <h3 className="font-semibold leading-snug text-sm mt-1 truncate">{m.title}</h3>
-                      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-inksoft min-w-0">
-                        <IconPin size={13} className="flex-shrink-0" />
-                        <span className="truncate">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <IconPin size={18} className="flex-shrink-0 text-inksoft" />
+                        <span className="font-medium truncate">
                           {m.location || (m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ')}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5 mt-1 text-xs text-inksoft">
-                        <IconUsers size={13} className="flex-shrink-0" />
-                        {participantCountByMeeting.get(m.id) ?? 0} người tham dự
+                      <div className="flex items-center gap-2">
+                        <IconUsers size={18} className="flex-shrink-0 text-inksoft" />
+                        <span className="font-medium">
+                          {participantCountByMeeting.get(m.id) ?? 0} người tham dự
+                        </span>
                       </div>
-                    </div>
-
-                    <div className="flex flex-col items-end justify-between gap-2 flex-shrink-0 self-stretch">
-                      <MeetingStatusBadge meeting={m} now={now} />
-                      <span className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-full border border-red/30 text-red text-[11px] font-semibold px-3 py-1.5">
-                        Xem chi tiết
-                        <IconChevronRight size={12} />
-                      </span>
                     </div>
                   </Link>
                 );
