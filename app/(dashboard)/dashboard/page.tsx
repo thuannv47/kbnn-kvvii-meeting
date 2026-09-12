@@ -127,32 +127,32 @@ export default async function DashboardPage() {
                   className="card flex items-stretch gap-3 p-3 hover:border-gold/40 transition-colors"
                 >
                   <div className="icon-tile-peach w-12 h-12 flex-col leading-none flex-shrink-0 rounded-xl">
-                    <span className="text-base font-bold">{d.getDate()}</span>
-                    <span className="text-[9px] font-bold uppercase -mt-0.5">
+                    <span className="text-[15px] font-bold">{d.getDate()}</span>
+                    <span className="text-[8.5px] font-bold uppercase -mt-0.5">
                       Th{String(d.getMonth() + 1).padStart(2, '0')}
                     </span>
                   </div>
 
                   <div className="min-w-0 flex-1 flex flex-col justify-center">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="min-w-0 flex-1 font-display text-[15px] font-bold leading-snug text-ink truncate">
+                      <h3 className="min-w-0 flex-1 font-display text-[13.5px] font-bold leading-snug text-ink truncate">
                         {m.title}
                       </h3>
                       {(status.key === 'LIVE' || status.key === 'UPCOMING') && (
-                        <span className={`${status.className} !text-[9.5px] !px-2 !py-0.5 flex-shrink-0`}>
+                        <span className={`${status.className} !text-[9px] !px-1.5 !py-0.5 flex-shrink-0`}>
                           {status.label}
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-[12.5px] text-inksoft mt-1">
+                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-[11px] text-inksoft mt-1">
                       <span className="inline-flex items-center gap-1">
-                        <IconClock size={13} className="flex-shrink-0" />
+                        <IconClock size={12} className="flex-shrink-0" />
                         {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })}–
                         {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
                       </span>
                       <span aria-hidden="true">·</span>
                       <span className="inline-flex items-center gap-1 min-w-0 truncate">
-                        <IconPin size={13} className="flex-shrink-0" />
+                        <IconPin size={12} className="flex-shrink-0" />
                         <span className="truncate">
                           {m.location || (m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ')}
                         </span>

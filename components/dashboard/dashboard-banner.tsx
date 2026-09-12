@@ -26,7 +26,7 @@ export default function DashboardBanner({
   const firstName = profile.full_name?.trim().split(/\s+/).pop() ?? profile.full_name;
 
   return (
-    <div className="md:hidden -mx-4 -mt-5 mb-5 px-5 pt-5 pb-6 banner-brand relative overflow-hidden rounded-b-[24px]">
+    <div className="md:hidden -mx-4 -mt-5 mb-5 px-5 pt-6 pb-7 banner-brand relative overflow-hidden rounded-b-[24px]">
       {/* Hoạ tiết vòng tròn mờ trang trí, cắt gọn trong banner */}
       <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/[0.06]" />
       <div className="pointer-events-none absolute -bottom-16 -left-8 w-36 h-36 rounded-full bg-black/[0.10]" />
@@ -60,7 +60,7 @@ export default function DashboardBanner({
         </div>
       </div>
 
-      <div className="relative mt-5 pt-4 border-t border-white/15">
+      <div className="relative mt-6 pt-4 border-t border-white/15">
         <div className="text-[19px] font-bold leading-tight truncate">Xin chào, {firstName}</div>
         <div className="text-[12.5px] text-white/70 mt-1 truncate">
           {departmentName ? `${departmentName} · ` : ''}
