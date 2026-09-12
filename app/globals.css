@@ -47,6 +47,7 @@
   .badge-done { @apply badge-status bg-[#EDEFF2] text-[#4B5563]; }
   .badge-draft { @apply badge-status bg-surface text-inksoft border border-dashed border-line; }
   .badge-external { @apply badge-status bg-[#F0EEFB] text-[#5B4FC4]; }
+  .badge-internal { @apply badge-status bg-[#E8F0FE] text-[#1D4ED8]; }
 
   .input {
     @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold/40;
@@ -142,4 +143,14 @@
 }
 .route-loading-fade {
   animation: route-loading-fade 0.15s ease-out;
+}
+
+/* Ẩn thanh cuộn ngang cho carousel "Cuộc họp sắp diễn ra" trên Trang chủ —
+   vẫn vuốt/kéo được bình thường, chỉ ẩn thanh cuộn cho gọn giao diện. */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

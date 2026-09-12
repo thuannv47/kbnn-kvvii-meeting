@@ -5,7 +5,7 @@ import { sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
 import type { Meeting } from '@/types/meeting';
 import PageHeader from '@/components/dashboard/page-header';
 import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
-import { IconChevronRight, IconClock, IconPin } from '@/components/ui/icons';
+import { IconClock, IconPin } from '@/components/ui/icons';
 import { formatTimeVN } from '@/lib/format-date';
 
 const WEEKDAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
@@ -88,6 +88,25 @@ export default async function MeetingsCalendarPage({
   const nextMonth = new Date(year, month + 1, 1);
   const selectedMeetings = (byDay.get(selectedKey) ?? []).slice();
 
+  // Lãnh đạo (BGĐ) tham dự — chỉ lấy cho các cuộc họp đang hiển thị trong ngày
+  // được chọn, tra qua bảng meeting_participants (bảng tag người tham dự, vốn
+  // dùng chung cho cả họp Nội bộ lẫn Ngoài ngành) rồi lọc theo role = 'BGD'.
+  const selectedIds = selectedMeetings.map((m) => m.id);
+  const { data: bgdParticipantsRaw } = selectedIds.length
+    ? await supabase
+        .from('meeting_participants')
+        .select('meeting_id, profiles:user_id(full_name, role)')
+        .in('meeting_id', selectedIds)
+    : { data: [] };
+
+  const bgdNamesByMeeting = new Map<string, string[]>();
+  for (const row of (bgdParticipantsRaw ?? []) as any[]) {
+    if (row.profiles?.role !== 'BGD') continue;
+    const arr = bgdNamesByMeeting.get(row.meeting_id) ?? [];
+    arr.push(row.profiles.full_name);
+    bgdNamesByMeeting.set(row.meeting_id, arr);
+  }
+
   return (
     <div className="space-y-5">
       <PageHeader title="Lịch họp" />
@@ -107,32 +126,32 @@ export default async function MeetingsCalendarPage({
         </Link>
       </div>
 
-      <div className="card p-4">
-        <div className="flex items-center justify-between mb-4">
+      <div className="card p-3">
+        <div className="flex items-center justify-between mb-3">
           <Link
             href={`/meetings/calendar?month=${monthParam(prevMonth.getFullYear(), prevMonth.getMonth())}`}
-            className="btn px-3 py-1.5 text-sm"
+            className="btn px-2.5 py-1 text-xs"
           >
             ← Tháng trước
           </Link>
-          <h2 className="font-semibold text-base">
+          <h2 className="font-semibold text-sm">
             Tháng {month + 1}/{year}
           </h2>
           <Link
             href={`/meetings/calendar?month=${monthParam(nextMonth.getFullYear(), nextMonth.getMonth())}`}
-            className="btn px-3 py-1.5 text-sm"
+            className="btn px-2.5 py-1 text-xs"
           >
             Tháng sau →
           </Link>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-inksoft font-semibold mb-1.5">
+        <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] text-inksoft font-semibold mb-1">
           {WEEKDAY_LABELS.map((w) => (
             <div key={w}>{w}</div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-0.5">
           {cells.map(({ date, key, inMonth }) => {
             const count = byDay.get(key)?.length ?? 0;
             const isToday = key === todayKey;
@@ -141,14 +160,14 @@ export default async function MeetingsCalendarPage({
               <Link
                 key={key}
                 href={`/meetings/calendar?month=${monthParam(year, month)}&date=${key}`}
-                className={`aspect-square rounded-lg flex flex-col items-center justify-center gap-0.5 text-xs transition-colors ${
+                className={`aspect-square rounded-md flex flex-col items-center justify-center gap-0.5 text-[11px] transition-colors ${
                   !inMonth ? 'text-inksoft/40' : 'text-ink'
                 } ${isSelected ? 'bg-navy text-white' : isToday ? 'border border-gold' : 'hover:bg-paper'}`}
               >
                 <span className={isSelected ? 'font-bold' : ''}>{date.getDate()}</span>
                 {count > 0 && (
                   <span
-                    className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-gold'}`}
+                    className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-gold'}`}
                     aria-label={`${count} cuộc họp`}
                   />
                 )}
@@ -167,32 +186,41 @@ export default async function MeetingsCalendarPage({
           <p className="table-empty card">Không có cuộc họp nào trong ngày này.</p>
         ) : (
           <div className="space-y-3">
-            {selectedMeetings.map((m) => (
-              <Link
-                key={m.id}
-                href={`/meetings/${m.id}`}
-                className="card flex items-start gap-3 p-3.5 hover:border-gold/40 transition-colors"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 text-xs text-inksoft">
-                    <IconClock size={13} className="flex-shrink-0" />
-                    {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
-                    {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
+            {selectedMeetings.map((m) => {
+              const bgdNames = bgdNamesByMeeting.get(m.id) ?? [];
+              return (
+                <div key={m.id} className="card p-3.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-xs text-inksoft">
+                      <IconClock size={13} className="flex-shrink-0" />
+                      {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
+                      {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className={m.meeting_type === 'EXTERNAL' ? 'badge-external' : 'badge-internal'}>
+                        {m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ'}
+                      </span>
+                      <MeetingStatusBadge meeting={m} now={now} />
+                    </div>
                   </div>
-                  <h4 className="font-semibold leading-snug text-sm mt-1 truncate">{m.title}</h4>
+
+                  <h4 className="font-semibold leading-snug text-sm mt-1.5">{m.title}</h4>
+
+                  {bgdNames.length > 0 && (
+                    <p className="mt-1.5 text-xs text-inksoft leading-snug">
+                      <span className="font-medium text-ink">Lãnh đạo tham dự:</span> BGĐ ({bgdNames.join(', ')})
+                    </p>
+                  )}
+
                   <div className="flex items-center gap-1.5 mt-1.5 text-xs text-inksoft min-w-0">
                     <IconPin size={13} className="flex-shrink-0" />
                     <span className="truncate">
-                      {m.location || (m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : m.departments?.name ?? 'Nội bộ')}
+                      {m.location || m.departments?.name || 'Chưa xác định địa điểm'}
                     </span>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                  <MeetingStatusBadge meeting={m} now={now} />
-                  <IconChevronRight size={14} className="text-inksoft" />
-                </div>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

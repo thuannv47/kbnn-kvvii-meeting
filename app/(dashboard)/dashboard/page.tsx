@@ -124,52 +124,57 @@ export default async function DashboardPage() {
         {highlightList.length === 0 ? (
           <p className="table-empty card">Hiện không có cuộc họp nào đang/sắp diễn ra liên quan đến bạn.</p>
         ) : (
-          <div className="space-y-3">
-            {highlightList.map((m) => {
-              const d = new Date(m.start_at);
-              return (
-                <Link
-                  key={m.id}
-                  href={`/meetings/${m.id}`}
-                  className="card flex items-start gap-3.5 p-3.5 hover:border-gold/40 transition-colors"
-                >
-                  <div className="icon-tile-rose flex-col leading-none flex-shrink-0">
-                    <span className="text-lg font-bold">{d.getDate()}</span>
-                    <span className="text-[10px] font-semibold uppercase mt-0.5">
-                      Th{String(d.getMonth() + 1).padStart(2, '0')}
-                    </span>
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 text-xs text-inksoft">
-                      <IconClock size={13} className="flex-shrink-0" />
-                      {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
-                      {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                    <h3 className="font-semibold leading-snug text-sm mt-1 truncate">{m.title}</h3>
-                    <div className="flex items-center gap-1.5 mt-1.5 text-xs text-inksoft min-w-0">
-                      <IconPin size={13} className="flex-shrink-0" />
-                      <span className="truncate">
-                        {m.location || (m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ')}
+          <>
+            <div className="flex gap-3.5 overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 pb-1">
+              {highlightList.slice(0, 5).map((m) => {
+                const d = new Date(m.start_at);
+                return (
+                  <Link
+                    key={m.id}
+                    href={`/meetings/${m.id}`}
+                    className="card flex items-start gap-3.5 p-3.5 hover:border-gold/40 transition-colors w-[87%] sm:w-[380px] flex-shrink-0 snap-center"
+                  >
+                    <div className="icon-tile-rose flex-col leading-none flex-shrink-0">
+                      <span className="text-lg font-bold">{d.getDate()}</span>
+                      <span className="text-[10px] font-semibold uppercase mt-0.5">
+                        Th{String(d.getMonth() + 1).padStart(2, '0')}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 mt-1 text-xs text-inksoft">
-                      <IconUsers size={13} className="flex-shrink-0" />
-                      {participantCountByMeeting.get(m.id) ?? 0} người tham dự
-                    </div>
-                  </div>
 
-                  <div className="flex flex-col items-end justify-between gap-2 flex-shrink-0 self-stretch">
-                    <MeetingStatusBadge meeting={m} now={now} />
-                    <span className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-full border border-red/30 text-red text-[11px] font-semibold px-3 py-1.5">
-                      Xem chi tiết
-                      <IconChevronRight size={12} />
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 text-xs text-inksoft">
+                        <IconClock size={13} className="flex-shrink-0" />
+                        {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
+                        {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      <h3 className="font-semibold leading-snug text-sm mt-1 truncate">{m.title}</h3>
+                      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-inksoft min-w-0">
+                        <IconPin size={13} className="flex-shrink-0" />
+                        <span className="truncate">
+                          {m.location || (m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1 text-xs text-inksoft">
+                        <IconUsers size={13} className="flex-shrink-0" />
+                        {participantCountByMeeting.get(m.id) ?? 0} người tham dự
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end justify-between gap-2 flex-shrink-0 self-stretch">
+                      <MeetingStatusBadge meeting={m} now={now} />
+                      <span className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-full border border-red/30 text-red text-[11px] font-semibold px-3 py-1.5">
+                        Xem chi tiết
+                        <IconChevronRight size={12} />
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+            {highlightList.length > 1 && (
+              <p className="text-[11px] text-inksoft text-center mt-1.5">← Vuốt để xem thêm cuộc họp →</p>
+            )}
+          </>
         )}
       </div>
 
