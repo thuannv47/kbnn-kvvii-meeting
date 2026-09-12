@@ -125,15 +125,19 @@ export default async function DashboardPage() {
           <p className="table-empty card">Hiện không có cuộc họp nào đang/sắp diễn ra liên quan đến bạn.</p>
         ) : (
           <>
-            <div className="flex gap-3.5 overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 pb-1">
-              {highlightList.slice(0, 5).map((m) => {
+            <div className="flex gap-3.5 overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 pt-2 pb-1">
+              {highlightList.map((m, idx) => {
                 const d = new Date(m.start_at);
                 return (
                   <Link
                     key={m.id}
                     href={`/meetings/${m.id}`}
-                    className="card flex items-start gap-3.5 p-3.5 hover:border-gold/40 transition-colors w-full flex-shrink-0 snap-center"
+                    className="relative card flex items-start gap-3.5 p-3.5 hover:border-gold/40 transition-colors w-full flex-shrink-0 snap-center"
                   >
+                    <span className="absolute -top-2 left-3 z-10 flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-md border-2 border-sky-500 bg-white text-[11px] font-bold text-sky-600">
+                      {idx + 1}
+                    </span>
+
                     <div className="icon-tile-rose flex-col leading-none flex-shrink-0">
                       <span className="text-lg font-bold">{d.getDate()}</span>
                       <span className="text-[10px] font-semibold uppercase mt-0.5">
@@ -172,7 +176,9 @@ export default async function DashboardPage() {
               })}
             </div>
             {highlightList.length > 1 && (
-              <p className="text-[11px] text-inksoft text-center mt-1.5">← Vuốt để xem thêm cuộc họp →</p>
+              <p className="text-[11px] text-inksoft text-center mt-2">
+                ← Vuốt để xem thêm cuộc họp → ({highlightList.length} cuộc họp)
+              </p>
             )}
           </>
         )}

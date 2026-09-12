@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { createServerSupabase } from '@/lib/supabase/server';
+import { createAdminSupabase } from '@/lib/supabase/admin';
 import { requireUser } from '@/lib/auth/current-user';
 import { canCreateMeeting, canHostDepartment, canManageMeeting, canDeleteMeeting, canDeleteMeetingAsThuky } from '@/lib/permissions';
 import { logAudit } from '@/lib/audit/log';
@@ -29,6 +30,90 @@ function genMeetingCode() {
     d.getDate()
   ).padStart(2, '0')}`;
   return `HNK-${stamp}-${Math.floor(Math.random() * 900 + 100)}`;
+}
+
+export type ScheduleConflict = {
+  user_id: string;
+  full_name: string;
+  role: 'BGD' | 'MANAGER';
+  meeting_id: string;
+  meeting_title: string;
+  start_at: string;
+  end_at: string;
+};
+
+/**
+ * Kiểm tra xem trong số người được tag tham dự (participant_user_ids), có ai
+ * thuộc BGĐ hoặc Trưởng/phó phòng (MANAGER) đã được tag vào MỘT cuộc họp khác
+ * bị TRÙNG khoảng thời gian với cuộc họp đang tạo/sửa hay không — để cảnh báo
+ * ngay cho Thư ký/người tạo TRƯỚC khi họ chốt lịch, tránh xếp trùng lịch lãnh đạo.
+ *
+ * Dùng service-role (bỏ qua RLS) vì đây là kiểm tra LỊCH BẬN xuyên phòng ban —
+ * người tạo cuộc họp có thể không có quyền XEM nội dung cuộc họp kia, nhưng vẫn
+ * cần biết là lãnh đạo đang bận vào giờ đó để tránh mời trùng. Chỉ trả về tối
+ * thiểu thông tin cần thiết (tên cuộc họp trùng + khung giờ), không lộ thêm gì khác.
+ */
+export async function checkMeetingScheduleConflictsAction(input: {
+  participant_user_ids: string[];
+  start_at: string;
+  end_at: string;
+  /** Khi SỬA cuộc họp: bỏ qua chính cuộc họp đang sửa để không tự báo trùng với chính nó. */
+  exclude_meeting_id?: string;
+}): Promise<{ conflicts: ScheduleConflict[] } | { error: string }> {
+  await requireUser();
+
+  if (input.participant_user_ids.length === 0 || !input.start_at || !input.end_at) {
+    return { conflicts: [] };
+  }
+  const newStart = new Date(input.start_at).getTime();
+  const newEnd = new Date(input.end_at).getTime();
+  if (Number.isNaN(newStart) || Number.isNaN(newEnd) || newEnd <= newStart) {
+    return { conflicts: [] };
+  }
+
+  const admin = createAdminSupabase();
+
+  const { data: profilesRaw } = await admin
+    .from('profiles')
+    .select('id, full_name, role')
+    .in('id', input.participant_user_ids)
+    .in('role', ['BGD', 'MANAGER']);
+
+  const watchedUsers = (profilesRaw ?? []) as { id: string; full_name: string; role: 'BGD' | 'MANAGER' }[];
+  if (watchedUsers.length === 0) return { conflicts: [] };
+
+  const { data: rows } = await admin
+    .from('meeting_participants')
+    .select('user_id, meetings:meeting_id(id, title, start_at, end_at, status)')
+    .in(
+      'user_id',
+      watchedUsers.map((u) => u.id)
+    );
+
+  const conflicts: ScheduleConflict[] = [];
+  for (const row of (rows ?? []) as any[]) {
+    const m = row.meetings;
+    if (!m) continue;
+    if (input.exclude_meeting_id && m.id === input.exclude_meeting_id) continue;
+    if (m.status === 'ARCHIVED') continue; // cuộc họp đã huỷ thì không tính là bận
+    const mStart = new Date(m.start_at).getTime();
+    const mEnd = new Date(m.end_at).getTime();
+    if (mStart < newEnd && mEnd > newStart) {
+      const user = watchedUsers.find((u) => u.id === row.user_id);
+      if (!user) continue;
+      conflicts.push({
+        user_id: user.id,
+        full_name: user.full_name,
+        role: user.role,
+        meeting_id: m.id,
+        meeting_title: m.title,
+        start_at: m.start_at,
+        end_at: m.end_at
+      });
+    }
+  }
+
+  return { conflicts };
 }
 
 export async function createMeetingAction(input: z.infer<typeof createMeetingSchema>) {

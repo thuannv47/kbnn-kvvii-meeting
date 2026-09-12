@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Meeting, MeetingDepartment, MeetingParticipant } from '@/types/meeting';
 import type { Department } from '@/types/user';
-import { updateMeetingStatusAction, deleteMeetingAction, updateMeetingInfoAction } from '@/actions/meeting.actions';
+import { updateMeetingStatusAction, deleteMeetingAction, updateMeetingInfoAction, checkMeetingScheduleConflictsAction } from '@/actions/meeting.actions';
 import { formatDateVN, formatTimeVN } from '@/lib/format-date';
 
 /** Chuyển ISO timestamp -> giá trị cho <input type="datetime-local"> (giờ địa phương, không giây). */
@@ -53,12 +53,41 @@ export default function TabInfo({
   function handleSaveInfo() {
     setEditError(null);
     startSaveTransition(async () => {
+      const start_at = new Date(form.start_at).toISOString();
+      const end_at = new Date(form.end_at).toISOString();
+
+      // Đổi giờ có thể phát sinh trùng lịch mới với BGĐ/Trưởng-phó phòng đã
+      // được tag tham dự cuộc họp này — cảnh báo trước, không chặn lưu.
+      const participantIds = participants.map((p) => p.user_id).filter(Boolean);
+      if (participantIds.length > 0) {
+        const conflictRes = await checkMeetingScheduleConflictsAction({
+          participant_user_ids: participantIds,
+          start_at,
+          end_at,
+          exclude_meeting_id: meeting.id
+        });
+        if ('conflicts' in conflictRes && conflictRes.conflicts.length > 0) {
+          const lines = conflictRes.conflicts.map((c) => {
+            const roleLabel = c.role === 'BGD' ? 'BGĐ' : 'Trưởng/phó phòng';
+            return `• ${c.full_name} (${roleLabel}) đang bận "${c.meeting_title}" lúc ${formatTimeVN(c.start_at, {
+              hour: '2-digit',
+              minute: '2-digit'
+            })}–${formatTimeVN(c.end_at, { hour: '2-digit', minute: '2-digit' })} ngày ${formatDateVN(c.start_at)}`;
+          });
+          const ok = confirm(
+            `Khung giờ mới bị trùng lịch với ${conflictRes.conflicts.length} người:\n\n${lines.join('\n')}\n\n` +
+              'Vẫn tiếp tục lưu thay đổi này?'
+          );
+          if (!ok) return;
+        }
+      }
+
       const res = await updateMeetingInfoAction(meeting.id, {
         title: form.title,
         summary: form.summary,
         location: form.location,
-        start_at: new Date(form.start_at).toISOString(),
-        end_at: new Date(form.end_at).toISOString()
+        start_at,
+        end_at
       });
       if (res?.error) {
         setEditError(res.error);
