@@ -5,8 +5,8 @@ import { getMeetingDisplayStatus } from '@/lib/meetings/status';
 import { isMeetingRelevantToDepartment, sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
 import DashboardBanner from '@/components/dashboard/dashboard-banner';
 import type { Meeting } from '@/types/meeting';
-import { IconClock, IconCalendar } from '@/components/ui/icons';
-import { formatTimeVN, formatDateVN } from '@/lib/format-date';
+import { IconClock, IconPin } from '@/components/ui/icons';
+import { formatTimeVN } from '@/lib/format-date';
 
 export default async function DashboardPage() {
   const { profile } = await requireUser();
@@ -116,51 +116,52 @@ export default async function DashboardPage() {
         {highlightList.length === 0 ? (
           <p className="table-empty card">Hiện không có cuộc họp nào đang/sắp diễn ra liên quan đến bạn.</p>
         ) : (
-          <div className="space-y-3">
-            {highlightList.map((m) => (
-              <Link
-                key={m.id}
-                href={`/meetings/${m.id}`}
-                className="card block p-4 hover:border-gold/40 transition-colors"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="icon-tile-peach flex-shrink-0">
-                    <IconCalendar size={24} />
+          <div className="space-y-2.5">
+            {highlightList.map((m) => {
+              const d = new Date(m.start_at);
+              const status = getMeetingDisplayStatus(m, now);
+              return (
+                <Link
+                  key={m.id}
+                  href={`/meetings/${m.id}`}
+                  className="card flex items-stretch gap-3 p-3 hover:border-gold/40 transition-colors"
+                >
+                  <div className="icon-tile-peach w-12 h-12 flex-col leading-none flex-shrink-0 rounded-xl">
+                    <span className="text-base font-bold">{d.getDate()}</span>
+                    <span className="text-[9px] font-bold uppercase -mt-0.5">
+                      Th{String(d.getMonth() + 1).padStart(2, '0')}
+                    </span>
                   </div>
-                  <h3 className="min-w-0 flex-1 font-display text-lg font-bold leading-snug text-ink">
-                    {m.title}
-                  </h3>
-                </div>
 
-                <div className="border-t border-line my-3.5" />
-
-                <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-sm text-inksoft mb-3">
-                  <span className="inline-flex items-center gap-1.5">
-                    <IconCalendar size={16} className="flex-shrink-0" />
-                    {formatDateVN(m.start_at)}
-                  </span>
-                  <span aria-hidden="true">·</span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <IconClock size={16} className="flex-shrink-0" />
-                    {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
-                    {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-
-                <dl className="space-y-2 text-sm">
-                  <div className="flex items-start gap-3">
-                    <dt className="text-inksoft w-[76px] flex-shrink-0">Cuộc họp</dt>
-                    <dd className="font-medium flex-1">
-                      {m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ'}
-                    </dd>
+                  <div className="min-w-0 flex-1 flex flex-col justify-center">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="min-w-0 flex-1 font-display text-[15px] font-bold leading-snug text-ink truncate">
+                        {m.title}
+                      </h3>
+                      {(status.key === 'LIVE' || status.key === 'UPCOMING') && (
+                        <span className={`${status.className} !text-[9.5px] !px-2 !py-0.5 flex-shrink-0`}>
+                          {status.label}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-[12.5px] text-inksoft mt-1">
+                      <span className="inline-flex items-center gap-1">
+                        <IconClock size={13} className="flex-shrink-0" />
+                        {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })}–
+                        {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span className="inline-flex items-center gap-1 min-w-0 truncate">
+                        <IconPin size={13} className="flex-shrink-0" />
+                        <span className="truncate">
+                          {m.location || (m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ')}
+                        </span>
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <dt className="text-inksoft w-[76px] flex-shrink-0">Địa điểm</dt>
-                    <dd className="font-medium flex-1">{m.location || '— chưa xác định'}</dd>
-                  </div>
-                </dl>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         )}
 
