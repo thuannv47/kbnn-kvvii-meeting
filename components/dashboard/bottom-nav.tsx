@@ -2,17 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { IconHome, IconCalendarDays, IconSearch, IconUser } from '@/components/ui/icons';
+import { IconHome, IconCalendar, IconCalendarDays, IconSearch, IconUser } from '@/components/ui/icons';
 
-// Trước đây có "Cuộc họp" (/meetings) ở đây, nhưng mục này TRÙNG với lưới liên kết
-// nhanh ngay trên Trang chủ (Cuộc họp, Tìm kiếm, Phòng ban, Tài khoản) — 4 icon đó
-// đã đủ để vào danh sách cuộc họp. Thay bằng "Lịch họp" (dạng lịch theo ngày, xem
-// nhanh cuộc họp trong tháng) để thanh điều hướng dưới có tính năng RIÊNG, không lặp
-// lại lối vào đã có sẵn ở lưới liên kết. Người dùng vẫn vào được danh sách cuộc họp
-// dạng bảng qua lưới liên kết ở Trang chủ, hoặc nút "Xem dạng danh sách" trong
-// chính trang Lịch họp.
 const items = [
   { href: '/dashboard', icon: IconHome, label: 'Trang chủ' },
+  { href: '/meetings', icon: IconCalendar, label: 'Cuộc họp' },
   { href: '/meetings/calendar', icon: IconCalendarDays, label: 'Lịch họp' },
   { href: '/search', icon: IconSearch, label: 'Tìm kiếm' },
   { href: '/account', icon: IconUser, label: 'Tài khoản' }
