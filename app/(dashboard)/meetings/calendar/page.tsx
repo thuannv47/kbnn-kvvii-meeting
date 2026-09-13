@@ -2,10 +2,10 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
-import type { Meeting } from '@/types/meeting';
+import type { Meeting, MeetingType, MeetingStatus } from '@/types/meeting';
 import PageHeader from '@/components/dashboard/page-header';
 import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
-import { IconClock, IconPin } from '@/components/ui/icons';
+import { IconClock, IconPin, IconBack, IconChevronRight } from '@/components/ui/icons';
 import { formatTimeVN } from '@/lib/format-date';
 
 const WEEKDAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
@@ -29,6 +29,11 @@ function dateKeyVN(iso: string) {
   return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }); // "YYYY-MM-DD"
 }
 
+type CalendarMeeting = Pick<Meeting, 'id' | 'code' | 'title' | 'meeting_type' | 'status' | 'location' | 'start_at' | 'end_at'> & {
+  departments?: { name: string };
+  leaders: { bgd: string[]; manager: string[] };
+};
+
 export default async function MeetingsCalendarPage({
   searchParams
 }: {
@@ -47,32 +52,91 @@ export default async function MeetingsCalendarPage({
   const selectedKey =
     searchParams.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date) ? searchParams.date : todayKey;
 
-  // Lấy cuộc họp GIAO với tháng đang xem (bắt đầu trước khi tháng kết thúc, và kết
-  // thúc sau khi tháng bắt đầu) — để không bỏ sót cuộc họp qua đêm ở rìa tháng.
-  // KHÔNG dùng quyền quản trị/service-role để "lấy hết mọi cuộc họp" — chỉ select()
-  // bình thường bằng phiên đăng nhập hiện tại, để RLS (can_view_meeting) tự lọc
-  // đúng những gì người này được phép xem, y hệt trang "Cuộc họp" dạng danh sách.
-  // Nhờ vậy lịch tự động tôn trọng phân quyền theo từng cấp (ADMIN/BGD thấy nhiều
-  // hơn, MEMBER/MANAGER chỉ thấy cuộc họp phòng mình + được mời), không cần thêm
-  // logic phân quyền riêng cho trang này.
-  const { data: meetingsRaw } = await supabase
+  // ---- NGUỒN 1: Lịch họp NỘI BỘ toàn ngành (RPC meetings_overview, xem migration
+  // 0013) — mọi tài khoản đang hoạt động đều thấy được, KHÔNG phụ thuộc "liên quan
+  // phòng ban" như trang "Cuộc họp" dạng danh sách, để Văn phòng và các phòng khác
+  // chủ động biết trước lịch mà bố trí hội trường/hậu cần, và biết lãnh đạo (BGĐ/
+  // Trưởng-phó phòng) đang bận giờ nào. Chỉ trả về cột hiển thị trên lịch — KHÔNG
+  // có summary/tài liệu/ý kiến/kết luận, những thứ đó vẫn theo đúng phân quyền cũ
+  // ở trang chi tiết cuộc họp (canViewMeeting() không hề bị nới lỏng).
+  const { data: overviewRaw } = await supabase.rpc('meetings_overview', {
+    month_start: monthStart.toISOString(),
+    month_end: monthEnd.toISOString()
+  });
+
+  // ---- NGUỒN 2: Phạm vi riêng theo phiên đăng nhập hiện tại (RLS tự lọc) — để
+  // không bỏ sót những cuộc họp người này thấy được nhờ quyền cá nhân mà RPC ở
+  // trên không phủ tới: cuộc họp Nháp do CHÍNH mình tạo, hoặc họp NGOÀI NGÀNH
+  // mình được TAG/tạo (Ngoài ngành cố ý không đưa vào RPC vì có thể nhạy cảm và
+  // không liên quan tới việc bố trí hội trường nội bộ).
+  const { data: ownScopeRaw } = await supabase
     .from('meetings')
-    .select('*, departments:host_department_id(name)')
+    .select(
+      '*, departments:host_department_id(name), meeting_participants(user_id, profiles:user_id(full_name, role))'
+    )
     .lt('start_at', monthEnd.toISOString())
     .gte('end_at', monthStart.toISOString());
 
-  const meetings = sortMeetingsByStartThenTitle(
-    (meetingsRaw ?? []) as (Meeting & { departments?: { name: string } })[],
-    'asc'
-  );
+  const merged = new Map<string, CalendarMeeting>();
 
-  const byDay = new Map<string, typeof meetings>();
+  for (const row of (overviewRaw ?? []) as any[]) {
+    const leaders = { bgd: [] as string[], manager: [] as string[] };
+    for (const l of (row.leaders ?? []) as { full_name: string; role: string }[]) {
+      if (l.role === 'BGD') leaders.bgd.push(l.full_name);
+      else if (l.role === 'MANAGER') leaders.manager.push(l.full_name);
+    }
+    merged.set(row.id, {
+      id: row.id,
+      code: row.code,
+      title: row.title,
+      meeting_type: row.meeting_type as MeetingType,
+      status: row.status as MeetingStatus,
+      location: row.location,
+      start_at: row.start_at,
+      end_at: row.end_at,
+      departments: row.host_department_name ? { name: row.host_department_name } : undefined,
+      leaders
+    });
+  }
+
+  for (const row of (ownScopeRaw ?? []) as any[]) {
+    const leaders = { bgd: [] as string[], manager: [] as string[] };
+    for (const p of (row.meeting_participants ?? []) as any[]) {
+      const role = p.profiles?.role;
+      if (role === 'BGD') leaders.bgd.push(p.profiles.full_name);
+      else if (role === 'MANAGER') leaders.manager.push(p.profiles.full_name);
+    }
+    // Nếu cuộc họp đã có sẵn từ RPC (trường hợp hiếm — vd. RPC vừa thêm sau khi
+    // đã đọc), giữ lại bản có nhiều thông tin lãnh đạo hơn thay vì ghi đè trắng.
+    const existing = merged.get(row.id);
+    merged.set(row.id, {
+      id: row.id,
+      code: row.code,
+      title: row.title,
+      meeting_type: row.meeting_type,
+      status: row.status,
+      location: row.location,
+      start_at: row.start_at,
+      end_at: row.end_at,
+      departments: row.departments,
+      leaders: existing && (existing.leaders.bgd.length || existing.leaders.manager.length) ? existing.leaders : leaders
+    });
+  }
+
+  const meetings = sortMeetingsByStartThenTitle([...merged.values()] as any, 'asc') as CalendarMeeting[];
+
+  const byDay = new Map<string, CalendarMeeting[]>();
   for (const m of meetings) {
     const key = dateKeyVN(m.start_at);
     const arr = byDay.get(key) ?? [];
     arr.push(m);
     byDay.set(key, arr);
   }
+  // Ngày có ít nhất 1 cuộc họp mà lãnh đạo (BGĐ/Trưởng-phó phòng) được tag tham dự
+  // -> tô chấm trên lịch màu khác hẳn, để lướt lịch là thấy ngay hôm nào lãnh đạo bận.
+  const daysWithLeader = new Set(
+    meetings.filter((m) => m.leaders.bgd.length > 0 || m.leaders.manager.length > 0).map((m) => dateKeyVN(m.start_at))
+  );
 
   // ---- Dựng lưới 6 hàng x 7 cột (Thứ 2 -> Chủ nhật), gồm cả ngày tháng trước/sau để lấp đầy tuần ----
   const firstWeekday = (monthStart.getDay() + 6) % 7; // 0 = Thứ 2
@@ -88,136 +152,165 @@ export default async function MeetingsCalendarPage({
   const nextMonth = new Date(year, month + 1, 1);
   const selectedMeetings = (byDay.get(selectedKey) ?? []).slice();
 
-  // Lãnh đạo (BGĐ) tham dự — chỉ lấy cho các cuộc họp đang hiển thị trong ngày
-  // được chọn, tra qua bảng meeting_participants (bảng tag người tham dự, vốn
-  // dùng chung cho cả họp Nội bộ lẫn Ngoài ngành) rồi lọc theo role = 'BGD'.
-  const selectedIds = selectedMeetings.map((m) => m.id);
-  const { data: bgdParticipantsRaw } = selectedIds.length
-    ? await supabase
-        .from('meeting_participants')
-        .select('meeting_id, profiles:user_id(full_name, role)')
-        .in('meeting_id', selectedIds)
-    : { data: [] };
-
-  const bgdNamesByMeeting = new Map<string, string[]>();
-  for (const row of (bgdParticipantsRaw ?? []) as any[]) {
-    if (row.profiles?.role !== 'BGD') continue;
-    const arr = bgdNamesByMeeting.get(row.meeting_id) ?? [];
-    arr.push(row.profiles.full_name);
-    bgdNamesByMeeting.set(row.meeting_id, arr);
-  }
+  const selectedDateObj = new Date(`${selectedKey}T00:00:00`);
+  const selectedLabel =
+    selectedKey === todayKey
+      ? 'Hôm nay'
+      : `${WEEKDAY_LABELS[(selectedDateObj.getDay() + 6) % 7]}, ${selectedDateObj.getDate()}/${selectedDateObj.getMonth() + 1}`;
 
   return (
     <div className="space-y-5">
       <PageHeader title="Lịch họp" />
 
-      <div className="hidden md:flex items-center justify-between">
-        <h1 className="text-2xl">Lịch họp</h1>
-        <Link href="/meetings" className="text-sm text-gold font-medium">
-          Xem dạng danh sách →
-        </Link>
-      </div>
-      <p className="hidden md:block text-sm text-inksoft -mt-3">
-        Chỉ hiển thị những cuộc họp bạn được phép xem — đúng theo phân quyền hiện có.
-      </p>
-      <div className="md:hidden flex justify-end -mt-2">
-        <Link href="/meetings" className="text-sm text-gold font-medium">
+      <div className="flex items-center justify-between">
+        <h1 className="hidden md:block text-2xl">Lịch họp</h1>
+        <p className="hidden md:block text-sm text-inksoft max-w-md">
+          Hiển thị cho toàn thể cán bộ để tiện bố trí hội trường và công tác văn phòng. Chi tiết cuộc họp
+          vẫn theo đúng phân quyền như trước.
+        </p>
+        <Link href="/meetings" className="text-sm text-gold font-medium flex-shrink-0 ml-auto">
           Xem dạng danh sách →
         </Link>
       </div>
 
-      <div className="card p-4">
-        <div className="flex items-center justify-between mb-4">
-          <Link
-            href={`/meetings/calendar?month=${monthParam(prevMonth.getFullYear(), prevMonth.getMonth())}`}
-            className="btn px-3 py-1.5 text-sm"
-          >
-            ← Tháng trước
-          </Link>
-          <h2 className="font-semibold text-base">
-            Tháng {month + 1}/{year}
-          </h2>
-          <Link
-            href={`/meetings/calendar?month=${monthParam(nextMonth.getFullYear(), nextMonth.getMonth())}`}
-            className="btn px-3 py-1.5 text-sm"
-          >
-            Tháng sau →
-          </Link>
-        </div>
+      <div className="md:grid md:grid-cols-[300px_1fr] md:gap-5 md:items-start">
+        {/* ---- Lịch tháng: thu gọn hẳn (ô cố định chiều cao thay vì vuông theo bề
+            ngang) để không còn chiếm phần lớn màn hình, dành chỗ cho danh sách. ---- */}
+        <div className="card p-3.5 md:sticky md:top-5">
+          <div className="flex items-center justify-between mb-3">
+            <Link
+              href={`/meetings/calendar?month=${monthParam(prevMonth.getFullYear(), prevMonth.getMonth())}`}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-line hover:border-gold transition-colors flex-shrink-0"
+              aria-label="Tháng trước"
+            >
+              <IconBack size={16} />
+            </Link>
+            <h2 className="font-display font-semibold text-[15px]">
+              Tháng {month + 1}/{year}
+            </h2>
+            <Link
+              href={`/meetings/calendar?month=${monthParam(nextMonth.getFullYear(), nextMonth.getMonth())}`}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-line hover:border-gold transition-colors flex-shrink-0"
+              aria-label="Tháng sau"
+            >
+              <IconChevronRight size={16} />
+            </Link>
+          </div>
 
-        <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-inksoft font-semibold mb-1.5">
-          {WEEKDAY_LABELS.map((w) => (
-            <div key={w}>{w}</div>
-          ))}
-        </div>
+          <div className="grid grid-cols-7 text-center text-[10.5px] text-inksoft font-semibold mb-1">
+            {WEEKDAY_LABELS.map((w) => (
+              <div key={w} className="h-5 flex items-center justify-center">
+                {w}
+              </div>
+            ))}
+          </div>
 
-        <div className="grid grid-cols-7 gap-1">
-          {cells.map(({ date, key, inMonth }) => {
-            const count = byDay.get(key)?.length ?? 0;
-            const isToday = key === todayKey;
-            const isSelected = key === selectedKey;
-            return (
-              <Link
-                key={key}
-                href={`/meetings/calendar?month=${monthParam(year, month)}&date=${key}`}
-                className={`aspect-square rounded-lg flex flex-col items-center justify-center gap-0.5 text-xs transition-colors ${
-                  !inMonth ? 'text-inksoft/40' : 'text-ink'
-                } ${isSelected ? 'bg-navy text-white' : isToday ? 'border border-gold' : 'hover:bg-paper'}`}
-              >
-                <span className={isSelected ? 'font-bold' : ''}>{date.getDate()}</span>
-                {count > 0 && (
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-gold'}`}
-                    aria-label={`${count} cuộc họp`}
-                  />
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      <div>
-        <h3 className="font-semibold mb-2.5">
-          {selectedKey === todayKey ? 'Hôm nay' : selectedKey} — {selectedMeetings.length} cuộc họp
-        </h3>
-
-        {selectedMeetings.length === 0 ? (
-          <p className="table-empty card">Không có cuộc họp nào trong ngày này.</p>
-        ) : (
-          <div className="space-y-3">
-            {selectedMeetings.map((m) => {
-              const bgdNames = bgdNamesByMeeting.get(m.id) ?? [];
+          <div className="grid grid-cols-7 gap-y-0.5">
+            {cells.map(({ date, key, inMonth }) => {
+              const count = byDay.get(key)?.length ?? 0;
+              const isToday = key === todayKey;
+              const isSelected = key === selectedKey;
+              const hasLeader = daysWithLeader.has(key);
               return (
-                <div key={m.id} className="card p-3.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-xs text-inksoft">
-                      <IconClock size={13} className="flex-shrink-0" />
-                      {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
-                      {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                    <MeetingStatusBadge meeting={m} now={now} />
-                  </div>
-
-                  <h4 className="font-semibold leading-snug text-sm mt-1.5">{m.title}</h4>
-
-                  {bgdNames.length > 0 && (
-                    <p className="mt-1.5 text-xs text-inksoft leading-snug">
-                      <span className="font-medium text-ink">Lãnh đạo tham dự:</span> BGĐ ({bgdNames.join(', ')})
-                    </p>
-                  )}
-
-                  <div className="flex items-center gap-1.5 mt-1.5 text-xs text-inksoft min-w-0">
-                    <IconPin size={13} className="flex-shrink-0" />
-                    <span className="truncate">
-                      {m.location || (m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : m.departments?.name ?? 'Nội bộ')}
-                    </span>
-                  </div>
-                </div>
+                <Link
+                  key={key}
+                  href={`/meetings/calendar?month=${monthParam(year, month)}&date=${key}`}
+                  className="h-9 flex items-center justify-center"
+                >
+                  <span
+                    className={`relative w-7 h-7 rounded-full flex items-center justify-center text-[12.5px] transition-colors ${
+                      !inMonth ? 'text-inksoft/35' : 'text-ink'
+                    } ${
+                      isSelected ? 'bg-navy text-white font-semibold' : isToday ? 'border border-gold font-semibold' : 'hover:bg-paper'
+                    }`}
+                  >
+                    {date.getDate()}
+                    {count > 0 && (
+                      <span
+                        className={`absolute -bottom-0.5 w-1 h-1 rounded-full ${
+                          isSelected ? 'bg-white' : hasLeader ? 'bg-gold' : 'bg-navy/50'
+                        }`}
+                        aria-hidden
+                      />
+                    )}
+                  </span>
+                </Link>
               );
             })}
           </div>
-        )}
+
+          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-line text-[11px] text-inksoft">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold" /> Có lãnh đạo
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-navy/50" /> Có cuộc họp
+            </span>
+          </div>
+        </div>
+
+        {/* ---- Danh sách cuộc họp trong ngày đang chọn: nhiều chỗ hơn hẳn để đọc,
+            không còn bị co lại nhường chỗ cho lịch. ---- */}
+        <div className="mt-5 md:mt-0">
+          <div className="flex items-baseline justify-between mb-3">
+            <h3 className="font-display font-semibold text-base">{selectedLabel}</h3>
+            <span className="text-xs text-inksoft flex-shrink-0">{selectedMeetings.length} cuộc họp</span>
+          </div>
+
+          {selectedMeetings.length === 0 ? (
+            <p className="table-empty card">Không có cuộc họp nào trong ngày này.</p>
+          ) : (
+            <div className="space-y-3">
+              {selectedMeetings.map((m) => {
+                const { bgd, manager } = m.leaders;
+                const leaderParts = [
+                  bgd.length ? `BGĐ (${bgd.join(', ')})` : null,
+                  manager.length ? `Trưởng/phó phòng (${manager.join(', ')})` : null
+                ].filter(Boolean);
+                const accentColor = m.meeting_type === 'EXTERNAL' ? '#5B4FC4' : '#1D4ED8';
+                return (
+                  <div
+                    key={m.id}
+                    className="card p-4 border-l-[3px]"
+                    style={{ borderLeftColor: accentColor }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <h4 className="font-display font-semibold leading-snug text-[15px] min-w-0 flex-1">
+                        {m.title}
+                      </h4>
+                      <MeetingStatusBadge meeting={m as any} now={now} />
+                    </div>
+
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 mt-2.5 text-[13px] text-inksoft">
+                      <span className="inline-flex items-center gap-1.5">
+                        <IconClock size={14} className="flex-shrink-0" />
+                        {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
+                        {formatTimeVN(m.end_at, { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 min-w-0">
+                        <IconPin size={14} className="flex-shrink-0" />
+                        <span className="truncate">
+                          {m.location ||
+                            (m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : m.departments?.name ?? 'Nội bộ')}
+                        </span>
+                      </span>
+                      <span className={m.meeting_type === 'EXTERNAL' ? 'badge-external' : 'badge-internal'}>
+                        {m.meeting_type === 'EXTERNAL' ? 'Ngoài ngành' : 'Nội bộ'}
+                      </span>
+                    </div>
+
+                    {leaderParts.length > 0 && (
+                      <div className="mt-2.5 pt-2.5 border-t border-line text-[13px] text-inksoft leading-snug">
+                        <span className="font-medium text-ink">Lãnh đạo tham dự: </span>
+                        {leaderParts.join(' · ')}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
