@@ -269,35 +269,31 @@ export default async function DashboardPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <DashboardBanner profile={profile} departmentName={dept?.name} relatedMeetingCount={highlightList.length} />
-
-      <div className="hidden md:block">
-        <h1 className="text-2xl">Trang chủ</h1>
+    <>
+      {/* ---- Mobile: TÁCH HẲN khỏi luồng bình thường của <main> bằng position:
+          fixed, ghim đúng theo viewport thật (top-0, bottom-16 = chừa đúng chiều
+          cao thanh điều hướng dưới) — không còn phải ĐOÁN số rem cho chiều cao
+          banner như 2 lần trước nữa (banner dài/ngắn tuỳ tên phòng ban vẫn luôn
+          đúng). Bên trong dùng flexbox thật: banner tự nhiên (flex-shrink-0),
+          phần 3 khối nhận flex-1 nên LUÔN khớp chính xác phần còn lại của màn
+          hình, dù banner cao bao nhiêu đi nữa. */}
+      <div className="md:hidden fixed inset-x-0 top-0 bottom-16 z-0 bg-paper flex flex-col overflow-hidden">
+        <DashboardBanner profile={profile} departmentName={dept?.name} relatedMeetingCount={highlightList.length} />
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden px-4 pt-4 pb-4">
+          {renderUpcomingCard(true)}
+          {statsCard}
+          {recentCard}
+        </div>
       </div>
 
-      {/* ---- Mobile: 1 khung cao ĐÚNG BẰNG phần màn hình còn lại (trừ đi khoảng
-          main dành cho thanh điều hướng dưới), xếp dọc bằng flexbox. "Thống kê"
-          và "Cuộc họp gần đây" giữ chiều cao tự nhiên (flex-shrink-0, không co),
-          "Cuộc họp sắp diễn ra" nhận flex-1 nên tự giãn/co theo phần không gian
-          CÒN LẠI và tự cuộn bên trong nó — nhờ vậy 2 khối kia LUÔN hiển thị đủ,
-          không bao giờ bị đẩy tràn xuống dưới, còn trang tổng thể thì không cuộn.
-          Con số 20rem là ước lượng (chiều cao banner + khoảng cách + phần main
-          dành cho thanh điều hướng dưới); cố tình ước lượng RỘNG RÃI một chút để
-          thà khung hơi thấp hơn mức tối đa còn hơn bị tràn lại như trước. ---- */}
-      <div className="md:hidden flex flex-col gap-4 h-[calc(100dvh-20rem)] min-h-[420px]">
-        {renderUpcomingCard(true)}
-        {statsCard}
-        {recentCard}
-      </div>
-
-      {/* ---- Desktop: quay lại flow bình thường, trang tự cuộn như trước (đủ
-          chỗ ngang nên không cần "vừa 1 màn hình" như mobile). ---- */}
+      {/* ---- Desktop: quay lại flow bình thường bên trong <main>, trang tự cuộn
+          như trước (đủ chỗ ngang nên không cần "vừa 1 màn hình" như mobile). ---- */}
       <div className="hidden md:block space-y-6">
+        <h1 className="text-2xl">Trang chủ</h1>
         {renderUpcomingCard(false)}
         {statsCard}
         {recentCard}
       </div>
-    </div>
+    </>
   );
 }
