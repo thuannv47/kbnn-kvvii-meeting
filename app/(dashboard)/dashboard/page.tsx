@@ -111,21 +111,17 @@ export default async function DashboardPage() {
   const recentDone = relevantAll
     .filter((m) => getMeetingDisplayStatus(m, now).key === 'DONE')
     .sort((a, b) => new Date(b.end_at).getTime() - new Date(a.end_at).getTime())
-    .slice(0, 6);
+    .slice(0, 4);
 
-  return (
-    <div className="space-y-6">
-      <DashboardBanner profile={profile} departmentName={dept?.name} relatedMeetingCount={highlightList.length} />
-
-      <div className="hidden md:block">
-        <h1 className="text-2xl">Trang chủ</h1>
-      </div>
-
-      {/* ---- 1. Cuộc họp sắp diễn ra: danh sách cuộn DỌC bên trong 1 khung thẻ cố
-          định chiều cao, thay cho carousel vuốt ngang trước đây — khớp theo ảnh
-          mẫu bạn gửi. ---- */}
-      <div className="card p-4">
-        <div className="flex items-center justify-between mb-3">
+  // ---- Card "Cuộc họp sắp diễn ra" — tách thành hàm vì cách CUỘN khác nhau giữa
+  // 2 chế độ: trên mobile khối này giãn hết phần không gian còn lại của màn hình
+  // (flex-1) và tự cuộn bên trong; trên desktop quay về chiều cao cố định như cũ
+  // (max-h-[340px]) vì trang desktop vẫn cuộn bình thường, không cần "vừa 1 màn
+  // hình" như mobile.
+  function renderUpcomingCard(fitScreen: boolean) {
+    return (
+      <div className={`card p-4 flex flex-col min-h-0 ${fitScreen ? 'flex-1' : ''}`}>
+        <div className="flex items-center justify-between mb-3 flex-shrink-0">
           <div className="flex items-center gap-2">
             <IconCalendarDays size={18} className="text-gold flex-shrink-0" />
             <h2 className="font-semibold">Cuộc họp sắp diễn ra</h2>
@@ -138,7 +134,11 @@ export default async function DashboardPage() {
         {highlightList.length === 0 ? (
           <p className="table-empty">Hiện không có cuộc họp nào đang/sắp diễn ra liên quan đến bạn.</p>
         ) : (
-          <div className="max-h-[340px] overflow-y-auto -mx-1 divide-y divide-line scroll-thin pr-1">
+          <div
+            className={`overflow-y-auto -mx-1 divide-y divide-line scroll-thin pr-1 ${
+              fitScreen ? 'flex-1 min-h-[150px]' : 'max-h-[340px]'
+            }`}
+          >
             {highlightList.map((m) => {
               const d = new Date(m.start_at);
               return (
@@ -179,89 +179,124 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
+    );
+  }
 
-      {/* ---- 2. Thống kê trong tháng: giữ nguyên 3 số liệu THẬT đã có sẵn (Tổng số /
-          Đã kết thúc / Sắp diễn ra) — không đổi thành "Đã tham gia / Chưa tham gia"
-          như ảnh mẫu vì hệ thống hiện CHƯA có cơ chế điểm danh/xác nhận tham dự để
-          tính đúng 2 số đó; chỉ đổi cách trình bày sang icon tròn cho giống ảnh. ---- */}
-      <div className="card p-4">
-        <h3 className="font-semibold text-sm mb-4">Thống kê cuộc họp trong tháng</h3>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="flex flex-col items-center gap-2">
-            <span className="w-10 h-10 rounded-full bg-[#FDECE0] text-[#C2622A] flex items-center justify-center flex-shrink-0">
-              <IconCalendarDays size={18} />
-            </span>
-            <div>
-              <div className="text-lg font-bold text-ink">{monthMeetings.length}</div>
-              <div className="text-[10.5px] text-inksoft leading-tight">Tổng số cuộc họp</div>
-            </div>
+  // ---- Card "Thống kê cuộc họp trong tháng" — chiều cao cố định/tự nhiên, KHÔNG
+  // co giãn, KHÔNG cuộn — luôn hiển thị đủ 3 số liệu ở cả 2 chế độ.
+  const statsCard = (
+    <div className="card p-4 flex-shrink-0">
+      <h3 className="font-semibold text-sm mb-4">Thống kê cuộc họp trong tháng</h3>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="flex flex-col items-center gap-2">
+          <span className="w-10 h-10 rounded-full bg-[#FDECE0] text-[#C2622A] flex items-center justify-center flex-shrink-0">
+            <IconCalendarDays size={18} />
+          </span>
+          <div>
+            <div className="text-lg font-bold text-ink">{monthMeetings.length}</div>
+            <div className="text-[10.5px] text-inksoft leading-tight">Tổng số cuộc họp</div>
           </div>
-          <div className="flex flex-col items-center gap-2">
-            <span className="w-10 h-10 rounded-full bg-[#E6F4EA] text-[#1E7A34] flex items-center justify-center flex-shrink-0">
-              <IconCheck size={18} />
-            </span>
-            <div>
-              <div className="text-lg font-bold text-[#1E7A34]">{monthDone}</div>
-              <div className="text-[10.5px] text-inksoft leading-tight">Đã kết thúc</div>
-            </div>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <span className="w-10 h-10 rounded-full bg-[#E6F4EA] text-[#1E7A34] flex items-center justify-center flex-shrink-0">
+            <IconCheck size={18} />
+          </span>
+          <div>
+            <div className="text-lg font-bold text-[#1E7A34]">{monthDone}</div>
+            <div className="text-[10.5px] text-inksoft leading-tight">Đã kết thúc</div>
           </div>
-          <div className="flex flex-col items-center gap-2">
-            <span className="w-10 h-10 rounded-full bg-[#FDF1DC] text-[#8A5A17] flex items-center justify-center flex-shrink-0">
-              <IconClock size={18} />
-            </span>
-            <div>
-              <div className="text-lg font-bold text-gold">{monthUpcoming}</div>
-              <div className="text-[10.5px] text-inksoft leading-tight">Sắp diễn ra</div>
-            </div>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <span className="w-10 h-10 rounded-full bg-[#FDF1DC] text-[#8A5A17] flex items-center justify-center flex-shrink-0">
+            <IconClock size={18} />
+          </span>
+          <div>
+            <div className="text-lg font-bold text-gold">{monthUpcoming}</div>
+            <div className="text-[10.5px] text-inksoft leading-tight">Sắp diễn ra</div>
           </div>
         </div>
       </div>
+    </div>
+  );
 
-      {/* ---- 3. Cuộc họp gần đây: bảng mới, chưa có trong bản trước — các cuộc đã
-          kết thúc gần nhất, mới nhất lên trước. ---- */}
-      <div className="card p-4 overflow-x-auto">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <IconClock size={18} className="text-gold flex-shrink-0" />
-            <h2 className="font-semibold">Cuộc họp gần đây</h2>
-          </div>
-          <Link href="/meetings" className="text-sm text-gold font-medium flex-shrink-0">
-            Xem tất cả →
-          </Link>
+  // ---- Card "Cuộc họp gần đây" — cũng chiều cao tự nhiên, KHÔNG cuộn dọc (chỉ
+  // overflow-x-auto để tự vệ khi màn hình quá hẹp, không phải cuộn dọc).
+  const recentCard = (
+    <div className="card p-4 overflow-x-auto flex-shrink-0">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <IconClock size={18} className="text-gold flex-shrink-0" />
+          <h2 className="font-semibold">Cuộc họp gần đây</h2>
         </div>
+        <Link href="/meetings" className="text-sm text-gold font-medium flex-shrink-0">
+          Xem tất cả →
+        </Link>
+      </div>
 
-        {recentDone.length === 0 ? (
-          <p className="table-empty">Chưa có cuộc họp nào kết thúc gần đây.</p>
-        ) : (
-          <table className="w-full text-sm min-w-[480px]">
-            <thead>
-              <tr className="text-left text-[11.5px] text-inksoft border-b border-line">
-                <th className="font-medium py-2 pr-3 whitespace-nowrap">Thời gian</th>
-                <th className="font-medium py-2 pr-3">Tên cuộc họp</th>
-                <th className="font-medium py-2 pr-3 whitespace-nowrap">Phòng họp</th>
-                <th className="font-medium py-2 whitespace-nowrap">Trạng thái</th>
+      {recentDone.length === 0 ? (
+        <p className="table-empty">Chưa có cuộc họp nào kết thúc gần đây.</p>
+      ) : (
+        <table className="w-full text-sm min-w-[480px]">
+          <thead>
+            <tr className="text-left text-[11.5px] text-inksoft border-b border-line">
+              <th className="font-medium py-2 pr-3 whitespace-nowrap">Thời gian</th>
+              <th className="font-medium py-2 pr-3">Tên cuộc họp</th>
+              <th className="font-medium py-2 pr-3 whitespace-nowrap">Phòng họp</th>
+              <th className="font-medium py-2 whitespace-nowrap">Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody>
+            {recentDone.map((m) => (
+              <tr key={m.id} className="border-b border-line last:border-0">
+                <td className="py-2.5 pr-3 whitespace-nowrap text-inksoft text-[13px]">
+                  {formatDateVN(m.start_at)} {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })}
+                </td>
+                <td className="py-2.5 pr-3 font-medium text-ink max-w-[220px] truncate">
+                  <Link href={`/meetings/${m.id}`} className="hover:text-gold">
+                    {m.title}
+                  </Link>
+                </td>
+                <td className="py-2.5 pr-3 text-inksoft text-[13px] whitespace-nowrap">{m.location || '—'}</td>
+                <td className="py-2.5 whitespace-nowrap">
+                  <span className="badge-done">Đã kết thúc</span>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {recentDone.map((m) => (
-                <tr key={m.id} className="border-b border-line last:border-0">
-                  <td className="py-2.5 pr-3 whitespace-nowrap text-inksoft text-[13px]">
-                    {formatDateVN(m.start_at)} {formatTimeVN(m.start_at, { hour: '2-digit', minute: '2-digit' })}
-                  </td>
-                  <td className="py-2.5 pr-3 font-medium text-ink max-w-[220px] truncate">
-                    <Link href={`/meetings/${m.id}`} className="hover:text-gold">
-                      {m.title}
-                    </Link>
-                  </td>
-                  <td className="py-2.5 pr-3 text-inksoft text-[13px] whitespace-nowrap">{m.location || '—'}</td>
-                  <td className="py-2.5 whitespace-nowrap">
-                    <span className="badge-done">Đã kết thúc</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <DashboardBanner profile={profile} departmentName={dept?.name} relatedMeetingCount={highlightList.length} />
+
+      <div className="hidden md:block">
+        <h1 className="text-2xl">Trang chủ</h1>
+      </div>
+
+      {/* ---- Mobile: 1 khung cao ĐÚNG BẰNG phần màn hình còn lại (trừ đi khoảng
+          main dành cho thanh điều hướng dưới), xếp dọc bằng flexbox. "Thống kê"
+          và "Cuộc họp gần đây" giữ chiều cao tự nhiên (flex-shrink-0, không co),
+          "Cuộc họp sắp diễn ra" nhận flex-1 nên tự giãn/co theo phần không gian
+          CÒN LẠI và tự cuộn bên trong nó — nhờ vậy 2 khối kia LUÔN hiển thị đủ,
+          không bao giờ bị đẩy tràn xuống dưới, còn trang tổng thể thì không cuộn.
+          Con số 20rem là ước lượng (chiều cao banner + khoảng cách + phần main
+          dành cho thanh điều hướng dưới); cố tình ước lượng RỘNG RÃI một chút để
+          thà khung hơi thấp hơn mức tối đa còn hơn bị tràn lại như trước. ---- */}
+      <div className="md:hidden flex flex-col gap-4 h-[calc(100dvh-20rem)] min-h-[420px]">
+        {renderUpcomingCard(true)}
+        {statsCard}
+        {recentCard}
+      </div>
+
+      {/* ---- Desktop: quay lại flow bình thường, trang tự cuộn như trước (đủ
+          chỗ ngang nên không cần "vừa 1 màn hình" như mobile). ---- */}
+      <div className="hidden md:block space-y-6">
+        {renderUpcomingCard(false)}
+        {statsCard}
+        {recentCard}
       </div>
     </div>
   );
