@@ -154,3 +154,24 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Thanh cuộn DỌC mảnh, LUÔN hiện (không đợi rê chuột/vuốt mới hiện như mặc
+   định macOS/trackpad) — dùng cho danh sách "Cuộc họp sắp diễn ra" trên Trang
+   chủ, để người dùng nhận ra ngay là còn nội dung cuộn xuống bên dưới. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(122, 20, 32, 0.25) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 5px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(122, 20, 32, 0.25);
+  border-radius: 999px;
+}
+.scroll-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(122, 20, 32, 0.4);
+}
