@@ -18,7 +18,7 @@ export default function DashboardBanner({
   relatedMeetingCount?: number;
 }) {
   return (
-    <div className="md:hidden -mx-4 -mt-5 mb-5 px-4 pt-5 pb-5 banner-brand">
+    <div className="md:hidden px-4 pt-5 pb-5 banner-brand flex-shrink-0">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <img src="/logo-kbnn.png" alt="" className="w-9 h-9 rounded-full bg-white/10 object-contain p-0.5 flex-shrink-0" />
