@@ -6,6 +6,7 @@ import type { Meeting, MeetingDepartment, MeetingParticipant } from '@/types/mee
 import type { Department } from '@/types/user';
 import { updateMeetingStatusAction, deleteMeetingAction, updateMeetingInfoAction, checkMeetingScheduleConflictsAction } from '@/actions/meeting.actions';
 import { formatDateVN, formatTimeVN } from '@/lib/format-date';
+import { IconPin, IconCalendarDays, IconClock, IconUser, IconCheck, IconFile } from '@/components/ui/icons';
 
 /** Chuyển ISO timestamp -> giá trị cho <input type="datetime-local"> (giờ địa phương, không giây). */
 function toDatetimeLocalValue(iso: string) {
@@ -186,35 +187,31 @@ export default function TabInfo({
         </div>
 
         {!isEditing ? (
-          <>
-            <p className="text-xs text-inksoft mb-1">Ghi chú (Hiển thị bên dưới tiêu đề cuộc họp)</p>
-            <p className="text-sm text-inksoft whitespace-pre-wrap">{meeting.summary || '—'}</p>
-
-            <div className="mt-3 pt-3 border-t border-line space-y-1.5">
-              <p className="text-sm">
-                <span aria-hidden>📍</span>{' '}
-                <span className="bg-paper2 rounded px-1.5 py-0.5">
-                  {meeting.location || '— chưa xác định'}
-                </span>
-              </p>
-              <p className="text-sm">
-                <span className="text-inksoft">Thời gian:</span>{' '}
+          <div className="space-y-3">
+            {meeting.summary && (
+              <div>
+                <p className="text-xs text-inksoft mb-1">Ghi chú (hiển thị dưới tiêu đề cuộc họp)</p>
+                <p className="text-sm whitespace-pre-wrap">{meeting.summary}</p>
+              </div>
+            )}
+            <div className={`space-y-2 text-sm ${meeting.summary ? 'pt-3 border-t border-line' : ''}`}>
+              <div className="flex items-start gap-2">
+                <IconPin size={16} className="text-inksoft flex-shrink-0 mt-0.5" />
+                <span>{meeting.location || '— chưa xác định'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <IconCalendarDays size={16} className="text-inksoft flex-shrink-0" />
                 <span className="font-medium">{formatDateVN(meeting.start_at)}</span>
-              </p>
-              <p className="text-sm pl-4">
-                <span className="text-inksoft">Bắt đầu:</span>{' '}
-                <span className="font-medium">
-                  {formatTimeVN(meeting.start_at, { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </p>
-              <p className="text-sm pl-4">
-                <span className="text-inksoft">Kết thúc:</span>{' '}
-                <span className="font-medium">
+              </div>
+              <div className="flex items-center gap-2">
+                <IconClock size={16} className="text-inksoft flex-shrink-0" />
+                <span>
+                  {formatTimeVN(meeting.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
                   {formatTimeVN(meeting.end_at, { hour: '2-digit', minute: '2-digit' })}
                 </span>
-              </p>
+              </div>
             </div>
-          </>
+          </div>
         ) : (
           <div className="space-y-2.5">
             <div>
@@ -282,19 +279,20 @@ export default function TabInfo({
 
       {meeting.meeting_type === 'EXTERNAL' && !isEditing && (
         <div className="card p-4">
-          <h3 className="font-semibold mb-2">Thông tin họp ngoài ngành</h3>
-          <p className="text-sm text-inksoft mb-2">
-            <span aria-hidden>📍</span> Địa điểm: {meeting.location || '— chưa xác định'}
-          </p>
-          <p className="text-sm font-medium mb-1.5">Người được cử đi tham dự</p>
+          <h3 className="font-semibold mb-3">Thành phần được cử đi tham dự</h3>
           {participants.length === 0 ? (
             <p className="text-sm text-inksoft">Chưa tag người nào.</p>
           ) : (
-            <ul className="space-y-1">
+            <ul className="space-y-2">
               {participants.map((p) => (
-                <li key={p.id} className="text-sm text-inksoft">
-                  🧑‍💼 {p.profiles?.full_name ?? 'Người dùng'}
-                  {p.profiles?.position ? ` — ${p.profiles.position}` : ''}
+                <li key={p.id} className="flex items-center gap-2.5 text-sm">
+                  <span className="w-7 h-7 rounded-full bg-paper2 flex items-center justify-center flex-shrink-0">
+                    <IconUser size={14} className="text-inksoft" />
+                  </span>
+                  <span>
+                    <span className="font-medium">{p.profiles?.full_name ?? 'Người dùng'}</span>
+                    {p.profiles?.position && <span className="text-inksoft"> — {p.profiles.position}</span>}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -307,7 +305,10 @@ export default function TabInfo({
       {canManage && meeting.status === 'DRAFT' && (
         <div className="card p-4 border-gold/40">
           <div className="flex items-center gap-2 mb-2">
-            <span className="badge-draft">📝 Nháp</span>
+            <span className="badge-draft">
+              <IconFile size={11} aria-hidden />
+              Nháp
+            </span>
             <h3 className="font-semibold">Cuộc họp đang ở dạng Nháp</h3>
           </div>
           <p className="text-sm text-inksoft mb-3">
@@ -315,8 +316,8 @@ export default function TabInfo({
             "Duyệt tạo cuộc họp" để các phòng ban đã chọn khi tạo bắt đầu nhìn thấy.
           </p>
           <button onClick={handleApprove} disabled={isApproving} className="btn-primary">
-            {isApproving && <span className="spinner" />}
-            {isApproving ? 'Đang duyệt…' : '✅ Duyệt tạo cuộc họp'}
+            {isApproving ? <span className="spinner mr-1.5" /> : <IconCheck size={15} className="mr-1.5" aria-hidden />}
+            {isApproving ? 'Đang duyệt…' : 'Duyệt tạo cuộc họp'}
           </button>
           {approveMsg && <p className="text-sm text-red mt-2">{approveMsg}</p>}
         </div>
