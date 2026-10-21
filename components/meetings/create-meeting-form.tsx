@@ -161,8 +161,21 @@ export default function CreateMeetingForm({
       return;
     }
 
-    const start_at = String(formData.get('start_at') || '');
-    const end_at = String(formData.get('end_at') || '');
+    // QUAN TRỌNG: <input type="datetime-local"> trả về chuỗi KHÔNG có múi giờ
+    // (VD "2026-10-21T08:00"). Nếu gửi nguyên chuỗi này lên server (Vercel chạy
+    // UTC) thì Postgres hiểu là 08:00 UTC => hiển thị giờ VN thành 15:00.
+    // Phải đổi sang ISO (có "Z") ngay ở trình duyệt, nơi biết đúng múi giờ người dùng
+    // — giống cách tab-info.tsx (chức năng Sửa) đang làm.
+    const startRaw = String(formData.get('start_at') || '');
+    const endRaw = String(formData.get('end_at') || '');
+    const startDate = new Date(startRaw);
+    const endDate = new Date(endRaw);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      setError('Thời gian bắt đầu/kết thúc không hợp lệ.');
+      return;
+    }
+    const start_at = startDate.toISOString();
+    const end_at = endDate.toISOString();
 
     startTransition(async () => {
       // Cảnh báo trước nếu có BGĐ/Trưởng-phó phòng trong danh sách được tag đã
