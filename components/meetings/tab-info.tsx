@@ -4,9 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Meeting, MeetingDepartment, MeetingParticipant } from '@/types/meeting';
 import type { Department } from '@/types/user';
-import { updateMeetingStatusAction, deleteMeetingAction, updateMeetingInfoAction, checkMeetingScheduleConflictsAction } from '@/actions/meeting.actions';
-import { formatDateVN, formatTimeVN } from '@/lib/format-date';
-import { IconPin, IconCalendarDays, IconClock, IconUser, IconCheck, IconFile } from '@/components/ui/icons';
+import { updateMeetingStatusAction, deleteMeetingAction, updateMeetingInfoAction } from '@/actions/meeting.actions';
 
 /** Chuyển ISO timestamp -> giá trị cho <input type="datetime-local"> (giờ địa phương, không giây). */
 function toDatetimeLocalValue(iso: string) {
@@ -54,41 +52,12 @@ export default function TabInfo({
   function handleSaveInfo() {
     setEditError(null);
     startSaveTransition(async () => {
-      const start_at = new Date(form.start_at).toISOString();
-      const end_at = new Date(form.end_at).toISOString();
-
-      // Đổi giờ có thể phát sinh trùng lịch mới với BGĐ/Trưởng-phó phòng đã
-      // được tag tham dự cuộc họp này — cảnh báo trước, không chặn lưu.
-      const participantIds = participants.map((p) => p.user_id).filter(Boolean);
-      if (participantIds.length > 0) {
-        const conflictRes = await checkMeetingScheduleConflictsAction({
-          participant_user_ids: participantIds,
-          start_at,
-          end_at,
-          exclude_meeting_id: meeting.id
-        });
-        if ('conflicts' in conflictRes && conflictRes.conflicts.length > 0) {
-          const lines = conflictRes.conflicts.map((c) => {
-            const roleLabel = c.role === 'BGD' ? 'BGĐ' : 'Trưởng/phó phòng';
-            return `• ${c.full_name} (${roleLabel}) đang bận "${c.meeting_title}" lúc ${formatTimeVN(c.start_at, {
-              hour: '2-digit',
-              minute: '2-digit'
-            })}–${formatTimeVN(c.end_at, { hour: '2-digit', minute: '2-digit' })} ngày ${formatDateVN(c.start_at)}`;
-          });
-          const ok = confirm(
-            `Khung giờ mới bị trùng lịch với ${conflictRes.conflicts.length} người:\n\n${lines.join('\n')}\n\n` +
-              'Vẫn tiếp tục lưu thay đổi này?'
-          );
-          if (!ok) return;
-        }
-      }
-
       const res = await updateMeetingInfoAction(meeting.id, {
         title: form.title,
         summary: form.summary,
         location: form.location,
-        start_at,
-        end_at
+        start_at: new Date(form.start_at).toISOString(),
+        end_at: new Date(form.end_at).toISOString()
       });
       if (res?.error) {
         setEditError(res.error);
@@ -187,31 +156,10 @@ export default function TabInfo({
         </div>
 
         {!isEditing ? (
-          <div className="space-y-3">
-            {meeting.summary && (
-              <div>
-                <p className="text-xs text-inksoft mb-1">Ghi chú (hiển thị dưới tiêu đề cuộc họp)</p>
-                <p className="text-sm whitespace-pre-wrap">{meeting.summary}</p>
-              </div>
-            )}
-            <div className={`space-y-2 text-sm ${meeting.summary ? 'pt-3 border-t border-line' : ''}`}>
-              <div className="flex items-start gap-2">
-                <IconPin size={16} className="text-inksoft flex-shrink-0 mt-0.5" />
-                <span>{meeting.location || '— chưa xác định'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <IconCalendarDays size={16} className="text-inksoft flex-shrink-0" />
-                <span className="font-medium">{formatDateVN(meeting.start_at)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <IconClock size={16} className="text-inksoft flex-shrink-0" />
-                <span>
-                  {formatTimeVN(meeting.start_at, { hour: '2-digit', minute: '2-digit' })} –{' '}
-                  {formatTimeVN(meeting.end_at, { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-            </div>
-          </div>
+          <>
+            <p className="text-xs text-inksoft mb-1">Tham dự cuộc họp (Người được cử tham dự cuộc họp)</p>
+            <p className="text-sm text-inksoft whitespace-pre-wrap">{meeting.summary || '—'}</p>
+          </>
         ) : (
           <div className="space-y-2.5">
             <div>
@@ -220,18 +168,6 @@ export default function TabInfo({
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                 className="input"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-inksoft mb-1 block">
-                Ghi chú (Hiển thị bên dưới tiêu đề cuộc họp)
-              </label>
-              <textarea
-                value={form.summary}
-                onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))}
-                rows={3}
-                className="input"
-                placeholder="VD: Đ/c Nguyễn Văn A chủ trì cuộc họp"
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -263,6 +199,18 @@ export default function TabInfo({
                 placeholder="VD: Phòng họp A, tầng 3 hoặc đường link Zoom/Google Meet"
               />
             </div>
+            <div>
+              <label className="text-xs text-inksoft mb-1 block">
+                Tham dự cuộc họp (Người được cử tham dự cuộc họp)
+              </label>
+              <textarea
+                value={form.summary}
+                onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))}
+                rows={3}
+                className="input"
+                placeholder="VD: Đ/c Nguyễn Văn A chủ trì cuộc họp"
+              />
+            </div>
             {editError && <p className="text-sm text-red">{editError}</p>}
             <div className="flex gap-2">
               <button onClick={handleSaveInfo} disabled={isSaving} className="btn-primary">
@@ -279,20 +227,19 @@ export default function TabInfo({
 
       {meeting.meeting_type === 'EXTERNAL' && !isEditing && (
         <div className="card p-4">
-          <h3 className="font-semibold mb-3">Thành phần được cử đi tham dự</h3>
+          <h3 className="font-semibold mb-2">Thông tin họp ngoài ngành</h3>
+          <p className="text-sm text-inksoft mb-2">
+            <span aria-hidden>📍</span> Địa điểm: {meeting.location || '— chưa xác định'}
+          </p>
+          <p className="text-sm font-medium mb-1.5">Người được cử đi tham dự</p>
           {participants.length === 0 ? (
             <p className="text-sm text-inksoft">Chưa tag người nào.</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               {participants.map((p) => (
-                <li key={p.id} className="flex items-center gap-2.5 text-sm">
-                  <span className="w-7 h-7 rounded-full bg-paper2 flex items-center justify-center flex-shrink-0">
-                    <IconUser size={14} className="text-inksoft" />
-                  </span>
-                  <span>
-                    <span className="font-medium">{p.profiles?.full_name ?? 'Người dùng'}</span>
-                    {p.profiles?.position && <span className="text-inksoft"> — {p.profiles.position}</span>}
-                  </span>
+                <li key={p.id} className="text-sm text-inksoft">
+                  🧑‍💼 {p.profiles?.full_name ?? 'Người dùng'}
+                  {p.profiles?.position ? ` — ${p.profiles.position}` : ''}
                 </li>
               ))}
             </ul>
@@ -305,10 +252,7 @@ export default function TabInfo({
       {canManage && meeting.status === 'DRAFT' && (
         <div className="card p-4 border-gold/40">
           <div className="flex items-center gap-2 mb-2">
-            <span className="badge-draft">
-              <IconFile size={11} aria-hidden />
-              Nháp
-            </span>
+            <span className="badge-draft">📝 Nháp</span>
             <h3 className="font-semibold">Cuộc họp đang ở dạng Nháp</h3>
           </div>
           <p className="text-sm text-inksoft mb-3">
@@ -316,8 +260,8 @@ export default function TabInfo({
             "Duyệt tạo cuộc họp" để các phòng ban đã chọn khi tạo bắt đầu nhìn thấy.
           </p>
           <button onClick={handleApprove} disabled={isApproving} className="btn-primary">
-            {isApproving ? <span className="spinner mr-1.5" /> : <IconCheck size={15} className="mr-1.5" aria-hidden />}
-            {isApproving ? 'Đang duyệt…' : 'Duyệt tạo cuộc họp'}
+            {isApproving && <span className="spinner" />}
+            {isApproving ? 'Đang duyệt…' : '✅ Duyệt tạo cuộc họp'}
           </button>
           {approveMsg && <p className="text-sm text-red mt-2">{approveMsg}</p>}
         </div>

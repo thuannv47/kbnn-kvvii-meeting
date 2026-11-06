@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/auth/current-user';
 import { canCommentMeeting, canDeleteComment } from '@/lib/permissions';
+import { getBgdDepartmentId } from '@/lib/meetings/bgd';
 import { logAudit } from '@/lib/audit/log';
 import { buildStoragePath, getUploadUrl, deleteFile, MAX_FILE_SIZE, ALLOWED_MIME } from '@/lib/storage/b2';
 
@@ -29,11 +30,11 @@ export async function requestCommentAttachmentUploadUrlAction(input: {
   const { data: perms } = await supabase.from('meeting_departments').select('*').eq('meeting_id', input.meetingId);
   const { data: participants } = await supabase
     .from('meeting_participants')
-    .select('*')
+    .select('*, profiles:user_id(department_id)')
     .eq('meeting_id', input.meetingId);
   if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
 
-  if (!canCommentMeeting(meeting as any, (perms ?? []) as any, profile, (participants ?? []) as any)) {
+  if (!canCommentMeeting(meeting as any, (perms ?? []) as any, profile, (participants ?? []) as any, await getBgdDepartmentId(supabase))) {
     return { error: 'Bạn không có quyền tham gia ý kiến cho cuộc họp này.' };
   }
 
@@ -70,11 +71,11 @@ export async function addCommentAction(formData: FormData) {
   const { data: perms } = await supabase.from('meeting_departments').select('*').eq('meeting_id', meetingId);
   const { data: participants } = await supabase
     .from('meeting_participants')
-    .select('*')
+    .select('*, profiles:user_id(department_id)')
     .eq('meeting_id', meetingId);
   if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
 
-  if (!canCommentMeeting(meeting as any, (perms ?? []) as any, profile, (participants ?? []) as any)) {
+  if (!canCommentMeeting(meeting as any, (perms ?? []) as any, profile, (participants ?? []) as any, await getBgdDepartmentId(supabase))) {
     return { error: 'Bạn không có quyền tham gia ý kiến cho cuộc họp này.' };
   }
 

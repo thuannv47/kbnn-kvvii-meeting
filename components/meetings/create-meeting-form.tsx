@@ -2,11 +2,10 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { createMeetingAction, checkMeetingScheduleConflictsAction } from '@/actions/meeting.actions';
+import { createMeetingAction } from '@/actions/meeting.actions';
 import { requestDocumentUploadUrlAction, confirmDocumentUploadAction } from '@/actions/document.actions';
 import type { Department } from '@/types/user';
 import type { MeetingType } from '@/types/meeting';
-import { formatDateVN, formatTimeVN } from '@/lib/format-date';
 
 const VISIBILITY_OPTIONS = [
   { label: '48 giờ', value: 48 },
@@ -161,46 +160,7 @@ export default function CreateMeetingForm({
       return;
     }
 
-    // QUAN TRỌNG: <input type="datetime-local"> trả về chuỗi KHÔNG có múi giờ
-    // (VD "2026-10-21T08:00"). Nếu gửi nguyên chuỗi này lên server (Vercel chạy
-    // UTC) thì Postgres hiểu là 08:00 UTC => hiển thị giờ VN thành 15:00.
-    // Phải đổi sang ISO (có "Z") ngay ở trình duyệt, nơi biết đúng múi giờ người dùng
-    // — giống cách tab-info.tsx (chức năng Sửa) đang làm.
-    const startRaw = String(formData.get('start_at') || '');
-    const endRaw = String(formData.get('end_at') || '');
-    const startDate = new Date(startRaw);
-    const endDate = new Date(endRaw);
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      setError('Thời gian bắt đầu/kết thúc không hợp lệ.');
-      return;
-    }
-    const start_at = startDate.toISOString();
-    const end_at = endDate.toISOString();
-
     startTransition(async () => {
-      // Cảnh báo trước nếu có BGĐ/Trưởng-phó phòng trong danh sách được tag đã
-      // bận cuộc họp khác trùng khung giờ này — không CHẶN tạo, chỉ hỏi lại để
-      // Thư ký/người tạo chủ động xác nhận có muốn xếp trùng hay đổi giờ.
-      const conflictRes = await checkMeetingScheduleConflictsAction({
-        participant_user_ids: selectedParticipants,
-        start_at,
-        end_at
-      });
-      if ('conflicts' in conflictRes && conflictRes.conflicts.length > 0) {
-        const lines = conflictRes.conflicts.map((c) => {
-          const roleLabel = c.role === 'BGD' ? 'BGĐ' : 'Trưởng/phó phòng';
-          return `• ${c.full_name} (${roleLabel}) đang bận "${c.meeting_title}" lúc ${formatTimeVN(c.start_at, {
-            hour: '2-digit',
-            minute: '2-digit'
-          })}–${formatTimeVN(c.end_at, { hour: '2-digit', minute: '2-digit' })} ngày ${formatDateVN(c.start_at)}`;
-        });
-        const ok = confirm(
-          `Trùng lịch với ${conflictRes.conflicts.length} người:\n\n${lines.join('\n')}\n\n` +
-            'Vẫn tiếp tục tạo cuộc họp ở khung giờ này?'
-        );
-        if (!ok) return;
-      }
-
       const res = await createMeetingAction({
         title: String(formData.get('title') || ''),
         summary: String(formData.get('summary') || ''),
@@ -210,8 +170,8 @@ export default function CreateMeetingForm({
           meetingType === 'EXTERNAL'
             ? impliedHostDepartmentId
             : String(formData.get('host_department_id') || ''),
-        start_at,
-        end_at,
+        start_at: String(formData.get('start_at') || ''),
+        end_at: String(formData.get('end_at') || ''),
         visibility_duration_hours: visRaw === '' ? null : Number(visRaw),
         // Không còn cấp quyền theo CẢ PHÒNG nữa — luôn rỗng. Quyền xem hoàn
         // toàn dựa vào participant_user_ids (từng người cụ thể được tick).

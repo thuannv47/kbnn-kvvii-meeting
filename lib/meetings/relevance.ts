@@ -11,8 +11,8 @@ import type { Meeting, MeetingDepartment, MeetingParticipant } from '@/types/mee
  *  3) Có ít nhất 1 người được tag/mời tham dự (meeting_participants) mà người đó thuộc phòng D
  *     — "từng cá nhân trong phòng".
  *
- * Không áp dụng cho họp Ngoài ngành (EXTERNAL) — loại này chỉ hiển thị cho người được mời đích danh,
- * không có khái niệm "liên quan theo phòng ban".
+ * Họp Ngoài ngành (EXTERNAL) không có khái niệm "liên quan theo phòng ban", NGOẠI LỆ: nếu có người
+ * Ban Giám đốc được cử đi thì toàn bộ phòng BGD đều thấy (để biết ai đang đi dự họp nào).
  */
 export function isMeetingRelevantToDepartment(
   meeting: Pick<Meeting, 'meeting_type' | 'host_department_id'>,
@@ -20,9 +20,21 @@ export function isMeetingRelevantToDepartment(
   opts: {
     meetingDepartments?: Pick<MeetingDepartment, 'department_id' | 'can_view'>[];
     participantDepartmentIds?: (string | null | undefined)[];
+    /** id phòng Ban Giám đốc — nếu có người BGD được cử đi thì cả phòng BGD đều "liên quan" (cả họp ngoài ngành). */
+    bgdDepartmentId?: string | null;
   } = {}
 ): boolean {
   if (!departmentId) return false;
+
+  // Quy tắc BGD: có người BGD được cử đi dự họp (nội bộ HOẶC ngoài ngành) -> cả phòng BGD thấy là liên quan.
+  if (
+    opts.bgdDepartmentId &&
+    departmentId === opts.bgdDepartmentId &&
+    (opts.participantDepartmentIds ?? []).some((id) => id === opts.bgdDepartmentId)
+  ) {
+    return true;
+  }
+
   if (meeting.meeting_type !== 'INTERNAL') return false;
 
   if (meeting.host_department_id === departmentId) return true;
