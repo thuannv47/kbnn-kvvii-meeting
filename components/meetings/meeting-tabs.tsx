@@ -8,6 +8,7 @@ import TabDocuments from '@/components/documents/tab-documents';
 import TabComments from '@/components/comments/tab-comments';
 import TabConclusion from '@/components/conclusions/tab-conclusion';
 import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
+import { IconUsers } from '@/components/ui/icons';
 
 type TabKey = 'info' | 'documents' | 'comments' | 'conclusion';
 
@@ -20,6 +21,7 @@ export default function MeetingTabs(props: {
   comments: any[];
   conclusion: MeetingConclusion | null;
   allDepartments: Department[];
+  allUsers?: any[];
   profile: Profile;
   canManage: boolean;
   canDelete: boolean;
@@ -45,27 +47,30 @@ export default function MeetingTabs(props: {
           <p className="font-mono text-xs text-inksoft">{meeting.code}</p>
         </div>
         <h1 className="text-2xl mb-1">{meeting.title}</h1>
-        <p className="text-inksoft text-sm">
-          {hostDepartmentName} · {new Date(meeting.start_at).toLocaleString('vi-VN')} →{' '}
-          {new Date(meeting.end_at).toLocaleString('vi-VN')}
-        </p>
-        {meeting.location && (
-          <p className="text-inksoft text-sm mt-0.5">
-            <span aria-hidden>📍</span> {meeting.location}
-          </p>
-        )}
+        {hostDepartmentName && <p className="text-inksoft text-sm">{hostDepartmentName}</p>}
         {participants.length > 0 && meeting.meeting_type === 'EXTERNAL' && (
-          <p className="text-inksoft text-sm mt-0.5">
-            <span aria-hidden>🧑‍💼</span> Cử đi:{' '}
-            {participants
-              .filter((p) => p.profiles?.full_name)
-              .map((p) => (p.profiles?.position ? `${p.profiles.full_name} (${p.profiles.position})` : p.profiles?.full_name))
-              .join(', ')}
-          </p>
+          <div className="text-inksoft text-sm mt-0.5">
+            <IconUsers size={14} className="inline -mt-0.5 mr-1" aria-hidden />
+            Cử đi:{' '}
+            <button
+              type="button"
+              onClick={() => setShowParticipants((v) => !v)}
+              className="text-gold font-medium underline underline-offset-2"
+            >
+              {participants.length} người
+            </button>
+            {showParticipants && (
+              <p className="mt-1.5">
+                {participants.map((p) => p.profiles?.full_name).filter(Boolean).join(', ')} — xem đầy đủ chức vụ ở
+                tab "Thông tin" bên dưới.
+              </p>
+            )}
+          </div>
         )}
         {participants.length > 0 && meeting.meeting_type === 'INTERNAL' && (
           <div className="text-inksoft text-sm mt-0.5">
-            <span aria-hidden>🧑‍💼</span> Tổng số tham dự:{' '}
+            <IconUsers size={14} className="inline -mt-0.5 mr-1" aria-hidden />
+            Tổng số tham dự:{' '}
             <button
               type="button"
               onClick={() => setShowParticipants((v) => !v)}
@@ -103,6 +108,7 @@ export default function MeetingTabs(props: {
             perms={props.perms}
             participants={participants}
             allDepartments={props.allDepartments}
+            allUsers={props.allUsers}
             canManage={canManage}
             canDelete={props.canDelete}
             canDeleteAsThuky={props.canDeleteAsThuky}

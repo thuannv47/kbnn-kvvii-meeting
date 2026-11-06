@@ -32,6 +32,11 @@ function dateKeyVN(iso: string) {
 type CalendarMeeting = Pick<Meeting, 'id' | 'code' | 'title' | 'meeting_type' | 'status' | 'location' | 'start_at' | 'end_at'> & {
   departments?: { name: string };
   leaders: { bgd: string[]; manager: string[] };
+  /** Người được cử đi — chỉ có với họp NGOÀI NGÀNH, để Văn phòng bố trí xe/hậu cần. */
+  attendees: { full_name: string; position: string | null; department_name: string | null }[];
+  /** Tổng số người được tick tham dự + số người theo từng phòng ban — để bố trí hội trường. */
+  attendeeCount: number;
+  attendeeDepartments: { name: string; count: number }[];
 };
 
 export default async function MeetingsCalendarPage({
@@ -52,7 +57,7 @@ export default async function MeetingsCalendarPage({
   const selectedKey =
     searchParams.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date) ? searchParams.date : todayKey;
 
-  // ---- NGUỒN 1: Lịch họp NỘI BỘ toàn ngành (RPC meetings_overview, xem migration
+  // ---- NGUỒN 1: Lịch họp toàn ngành (nội bộ + ngoài ngành) (RPC meetings_overview, xem migration
   // 0013) — mọi tài khoản đang hoạt động đều thấy được, KHÔNG phụ thuộc "liên quan
   // phòng ban" như trang "Cuộc họp" dạng danh sách, để Văn phòng và các phòng khác
   // chủ động biết trước lịch mà bố trí hội trường/hậu cần, và biết lãnh đạo (BGĐ/
@@ -72,7 +77,7 @@ export default async function MeetingsCalendarPage({
   const { data: ownScopeRaw } = await supabase
     .from('meetings')
     .select(
-      '*, departments:host_department_id(name), meeting_participants(user_id, profiles:user_id(full_name, role))'
+      '*, departments:host_department_id(name), meeting_participants(user_id, profiles:user_id(full_name, role, position, departments:department_id(name)))'
     )
     .lt('start_at', monthEnd.toISOString())
     .gte('end_at', monthStart.toISOString());
@@ -95,16 +100,41 @@ export default async function MeetingsCalendarPage({
       start_at: row.start_at,
       end_at: row.end_at,
       departments: row.host_department_name ? { name: row.host_department_name } : undefined,
-      leaders
+      leaders,
+      attendees: ((row.attendees ?? []) as any[]).map((a) => ({
+        full_name: a.full_name,
+        position: a.position ?? null,
+        department_name: a.department_name ?? null
+      })),
+      attendeeCount: Number(row.attendee_count ?? 0),
+      attendeeDepartments: ((row.attendee_departments ?? []) as any[]).map((d) => ({
+        name: d.name,
+        count: Number(d.count)
+      }))
     });
   }
 
   for (const row of (ownScopeRaw ?? []) as any[]) {
     const leaders = { bgd: [] as string[], manager: [] as string[] };
+    const attendees: CalendarMeeting['attendees'] = [];
+    const deptCounts = new Map<string, number>();
     for (const p of (row.meeting_participants ?? []) as any[]) {
+      {
+        const dep0 = p.profiles?.departments;
+        const depName = (Array.isArray(dep0) ? dep0[0]?.name : dep0?.name) ?? 'Khác';
+        deptCounts.set(depName, (deptCounts.get(depName) ?? 0) + 1);
+      }
       const role = p.profiles?.role;
       if (role === 'BGD') leaders.bgd.push(p.profiles.full_name);
       else if (role === 'MANAGER') leaders.manager.push(p.profiles.full_name);
+      if (row.meeting_type === 'EXTERNAL' && p.profiles) {
+        const dep = p.profiles.departments;
+        attendees.push({
+          full_name: p.profiles.full_name,
+          position: p.profiles.position ?? null,
+          department_name: (Array.isArray(dep) ? dep[0]?.name : dep?.name) ?? null
+        });
+      }
     }
     // Nếu cuộc họp đã có sẵn từ RPC (trường hợp hiếm — vd. RPC vừa thêm sau khi
     // đã đọc), giữ lại bản có nhiều thông tin lãnh đạo hơn thay vì ghi đè trắng.
@@ -119,7 +149,13 @@ export default async function MeetingsCalendarPage({
       start_at: row.start_at,
       end_at: row.end_at,
       departments: row.departments,
-      leaders: existing && (existing.leaders.bgd.length || existing.leaders.manager.length) ? existing.leaders : leaders
+      leaders: existing && (existing.leaders.bgd.length || existing.leaders.manager.length) ? existing.leaders : leaders,
+      attendees: existing && existing.attendees.length ? existing.attendees : attendees,
+      attendeeCount: existing && existing.attendeeCount ? existing.attendeeCount : (row.meeting_participants ?? []).length,
+      attendeeDepartments:
+        existing && existing.attendeeDepartments.length
+          ? existing.attendeeDepartments
+          : [...deptCounts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name, 'vi'))
     });
   }
 
@@ -165,8 +201,8 @@ export default async function MeetingsCalendarPage({
       <div className="flex items-center justify-between">
         <h1 className="hidden md:block text-2xl">Lịch họp</h1>
         <p className="hidden md:block text-sm text-inksoft max-w-md">
-          Hiển thị cho toàn thể cán bộ để tiện bố trí hội trường và công tác văn phòng. Chi tiết cuộc họp
-          vẫn theo đúng phân quyền như trước.
+          Hiển thị cho toàn thể cán bộ để tiện bố trí hội trường, xe và công tác văn phòng. Chi tiết cuộc
+          họp (tài liệu, ý kiến, kết luận) vẫn theo đúng phân quyền như trước.
         </p>
         <Link href="/meetings" className="text-sm text-gold font-medium flex-shrink-0 ml-auto">
           Xem dạng danh sách →
@@ -299,7 +335,31 @@ export default async function MeetingsCalendarPage({
                       </span>
                     </div>
 
-                    {leaderParts.length > 0 && (
+                    {m.meeting_type === 'EXTERNAL' && m.attendees.length > 0 && (
+                      <div className="mt-2.5 pt-2.5 border-t border-line text-[13px] text-inksoft leading-snug">
+                        <span className="font-medium text-ink">Người được cử đi ({m.attendees.length}): </span>
+                        {m.attendees
+                          .map((a) => {
+                            const extra = [a.position, a.department_name].filter(Boolean).join(', ');
+                            return extra ? `${a.full_name} (${extra})` : a.full_name;
+                          })
+                          .join(' · ')}
+                      </div>
+                    )}
+
+                    {m.meeting_type !== 'EXTERNAL' && m.attendeeCount > 0 && (
+                      <div className="mt-2.5 pt-2.5 border-t border-line text-[13px] text-inksoft leading-snug">
+                        <span className="font-medium text-ink">Số người tham dự: {m.attendeeCount}</span>
+                        {m.attendeeDepartments.length > 0 && (
+                          <>
+                            {' — '}
+                            {m.attendeeDepartments.map((d) => `${d.name} (${d.count})`).join(' · ')}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {!(m.meeting_type === 'EXTERNAL' && m.attendees.length > 0) && leaderParts.length > 0 && (
                       <div className="mt-2.5 pt-2.5 border-t border-line text-[13px] text-inksoft leading-snug">
                         <span className="font-medium text-ink">Lãnh đạo tham dự: </span>
                         {leaderParts.join(' · ')}

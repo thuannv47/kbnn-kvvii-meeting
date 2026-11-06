@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { canCreateMeeting } from '@/lib/permissions';
 import { isMeetingRelevantToDepartment, sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
+import { getMeetingDisplayStatus } from '@/lib/meetings/status';
 import type { Meeting, MeetingType } from '@/types/meeting';
 import PageHeader from '@/components/dashboard/page-header';
 import MeetingCard from '@/components/meetings/meeting-card';
@@ -30,8 +31,6 @@ export default async function MeetingsListPage({
 
   // Lấy toàn bộ (RLS đã lọc theo quyền xem) để đếm số lượng từng loại cho 2 tab,
   // rồi mới lọc theo tab + từ khoá đang chọn để hiển thị danh sách.
-  const { data: bgdDept } = await supabase.from('departments').select('id').eq('code', 'BGD').maybeSingle();
-  const bgdDepartmentId = bgdDept?.id ?? null;
   const { data: meetings } = await supabase
     .from('meetings')
     .select('*, departments:host_department_id(name)');
@@ -74,8 +73,7 @@ export default async function MeetingsListPage({
       .filter((m) =>
         isMeetingRelevantToDepartment(m, profile.department_id, {
           meetingDepartments: deptPermsByMeeting.get(m.id) ?? [],
-          participantDepartmentIds: participantDeptsByMeeting.get(m.id) ?? [],
-      bgdDepartmentId
+          participantDepartmentIds: participantDeptsByMeeting.get(m.id) ?? []
         })
       )
       .map((m) => m.id)
@@ -90,7 +88,15 @@ export default async function MeetingsListPage({
   });
 
   // Ngày - giờ bắt đầu, đến trước ở dòng trên; trùng giờ thì theo Tên hội nghị A -> Z.
-  const filtered = sortMeetingsByStartThenTitle(filteredUnsorted, sort);
+  const filteredByTime = sortMeetingsByStartThenTitle(filteredUnsorted, sort);
+
+  // Sau đó nhóm lại theo trạng thái hiển thị: Nháp (cần xử lý) -> Đang diễn ra -> Chưa diễn ra
+  // -> Đã kết thúc. Dùng sort ổn định (Array.sort trong V8 luôn ổn định) nên thứ tự thời gian
+  // bên trong từng nhóm ở bước trên vẫn được giữ nguyên, chỉ nhóm bọc ngoài theo trạng thái.
+  const STATUS_ORDER: Record<string, number> = { DRAFT: 0, LIVE: 1, UPCOMING: 2, DONE: 3 };
+  const filtered = [...filteredByTime].sort(
+    (a, b) => STATUS_ORDER[getMeetingDisplayStatus(a).key] - STATUS_ORDER[getMeetingDisplayStatus(b).key]
+  );
 
   const qs = (overrides: Record<string, string>) => {
     const params = new URLSearchParams({ type: activeType, sort, ...(q ? { q } : {}), ...overrides });

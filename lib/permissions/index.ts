@@ -43,23 +43,6 @@ export function canHostDepartment(u: Profile | null | undefined, departmentId: s
 }
 
 /**
- * QUY TẮC BGD: nếu có ÍT NHẤT 1 người thuộc phòng Ban Giám đốc được cử đi dự
- * cuộc họp (nội bộ hoặc ngoài ngành, đã Duyệt) thì MỌI thành viên phòng BGD
- * đều xem được cuộc họp đó — để cả Ban biết ai đang đi dự cuộc họp nào.
- * Khớp với bgd_member_attends() ở supabase/migrations/0013_bgd_see_bgd_participants.sql.
- */
-export function bgdMemberAttends(
-  meeting: Pick<Meeting, 'status'>,
-  u: Profile | null | undefined,
-  bgdDepartmentId: string | null | undefined,
-  participants: (MeetingParticipant & { profiles?: { department_id?: string | null } | null })[] = []
-) {
-  if (!u || !bgdDepartmentId || u.department_id !== bgdDepartmentId) return false;
-  if (meeting.status === 'DRAFT') return false;
-  return participants.some((p) => p.profiles?.department_id === bgdDepartmentId);
-}
-
-/**
  * QUY TẮC HIỂN THỊ (khớp với can_view_meeting()/can_comment_meeting() ở
  * supabase/migrations/0010_draft_admin_only.sql — đây chỉ là lớp kiểm tra
  * phụ ở UI, lớp chặn thật sự vẫn là RLS):
@@ -77,15 +60,15 @@ export function canViewMeeting(
   meeting: Meeting,
   perms: MeetingDepartment[],
   u?: Profile | null,
-  participants: MeetingParticipant[] = [],
-  bgdDepartmentId?: string | null
+  participants: MeetingParticipant[] = []
 ) {
   if (!u) return false;
   if (isAdmin(u)) return true;
+  // THƯ KÝ xem được TOÀN BỘ cuộc họp (mọi phòng/loại/trạng thái) — khớp với
+  // can_view_meeting() ở supabase/migrations/0015_thuky_view_all_meetings.sql.
+  if (u.role === 'THUKY') return true;
   if (meeting.created_by === u.id) return true;
   if (participants.some((p) => p.user_id === u.id)) return true;
-  if (bgdMemberAttends(meeting, u, bgdDepartmentId, participants as any)) return true;
-  if (isBGD(u)) return true; // role BGD: RLS is_bgd() cho xem mọi cuộc họp (kể cả ngoài ngành)
   if (meeting.meeting_type !== 'INTERNAL') return false;
   if (meeting.status === 'DRAFT') return false;
   if (isBGD(u)) return true;
@@ -97,15 +80,12 @@ export function canCommentMeeting(
   meeting: Meeting,
   perms: MeetingDepartment[],
   u?: Profile | null,
-  participants: MeetingParticipant[] = [],
-  bgdDepartmentId?: string | null
+  participants: MeetingParticipant[] = []
 ) {
   if (!u) return false;
   if (isAdmin(u)) return true;
   if (meeting.created_by === u.id) return true;
   if (participants.some((p) => p.user_id === u.id)) return true;
-  if (bgdMemberAttends(meeting, u, bgdDepartmentId, participants as any)) return true;
-  if (isBGD(u)) return true; // role BGD: RLS is_bgd() cho xem mọi cuộc họp (kể cả ngoài ngành)
   if (meeting.meeting_type !== 'INTERNAL') return false;
   if (meeting.status === 'DRAFT') return false;
   if (isBGD(u)) return true;
@@ -199,10 +179,9 @@ export function canUploadDocument(
   meeting: Meeting,
   perms: MeetingDepartment[],
   u?: Profile | null,
-  participants: MeetingParticipant[] = [],
-  bgdDepartmentId?: string | null
+  participants: MeetingParticipant[] = []
 ) {
-  return canCommentMeeting(meeting, perms, u, participants, bgdDepartmentId);
+  return canCommentMeeting(meeting, perms, u, participants);
 }
 
 /** Thêm version mới (= sửa) cho tài liệu đã có. Xem quy tắc ở canEditMeetingContent. */

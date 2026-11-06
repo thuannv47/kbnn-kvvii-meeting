@@ -13,7 +13,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .maybeSingle();
 
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[260px_1fr]">
+    <div className="min-h-screen md:grid md:grid-cols-[220px_1fr]">
       {/* Đã bỏ <RouteProgress /> — trước đây vừa bật ngay khi bấm link (RouteProgress)
           vừa bật loading.tsx của Next.js khi trang mới đang tải dữ liệu, 2 lớp
           logo chồng lên nhau trông như chạy 2 lần. Giờ chỉ còn duy nhất loading.tsx
@@ -30,7 +30,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </main>
       </div>
 
-      <BottomNav profile={profile} />
+      <BottomNav />
     </div>
   );
 }

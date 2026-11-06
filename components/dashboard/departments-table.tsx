@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import DepartmentRowActions from './department-row-actions';
 
 type Department = {
   id: string;
@@ -24,7 +25,7 @@ function normalize(text: string) {
     .replace(/đ/g, 'd');
 }
 
-export default function DepartmentsTable({ departments }: { departments: Department[] }) {
+export default function DepartmentsTable({ departments, canManage = false }: { departments: Department[]; canManage?: boolean }) {
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -58,6 +59,7 @@ export default function DepartmentsTable({ departments }: { departments: Departm
               <th>Tên</th>
               <th>Loại</th>
               <th>Trạng thái</th>
+              {canManage && <th className="text-right">Thao tác</th>}
             </tr>
           </thead>
           <tbody>
@@ -73,11 +75,16 @@ export default function DepartmentsTable({ departments }: { departments: Departm
                     <span className="tag-muted">Ngừng</span>
                   )}
                 </td>
+                {canManage && (
+                  <td>
+                    <DepartmentRowActions dept={d} />
+                  </td>
+                )}
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={4} className="table-empty">
+                <td colSpan={canManage ? 5 : 4} className="table-empty">
                   {departments.length === 0
                     ? 'Chưa có phòng ban nào.'
                     : `Không tìm thấy phòng ban nào khớp với "${query}".`}

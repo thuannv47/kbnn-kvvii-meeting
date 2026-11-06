@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { createMeetingAction } from '@/actions/meeting.actions';
+import { createMeetingAction, checkMeetingScheduleConflictsAction } from '@/actions/meeting.actions';
 import { requestDocumentUploadUrlAction, confirmDocumentUploadAction } from '@/actions/document.actions';
 import type { Department } from '@/types/user';
 import type { MeetingType } from '@/types/meeting';
+import { formatDateVN, formatTimeVN } from '@/lib/format-date';
 
 const VISIBILITY_OPTIONS = [
   { label: '48 giờ', value: 48 },
@@ -61,6 +62,8 @@ export default function CreateMeetingForm({
   const [participantSearch, setParticipantSearch] = useState('');
   const [invitationFile, setInvitationFile] = useState<File | null>(null);
   const [isPending, startTransition] = useTransition();
+  // Phòng chủ trì đang chọn (BGĐ/ADMIN đổi được; người thường cố định = phòng mình).
+  const [hostDeptId, setHostDeptId] = useState(defaultDepartmentId);
 
   // Phòng chủ trì chỉ có ý nghĩa cho họp Nội bộ (do phòng trong hệ thống tổ chức).
   // Họp Ngoài ngành do đơn vị gửi giấy mời chủ trì — hệ thống vẫn cần 1
@@ -136,6 +139,19 @@ export default function CreateMeetingForm({
     setSelectedParticipants(allSelected ? [] : users.map((u) => u.id));
   }
 
+  // Chọn nhanh TOÀN BỘ người của MỌI phòng ban KHÁC phòng chủ trì (giữ nguyên những
+  // người đã tick sẵn, kể cả người phòng chủ trì). Vẫn bỏ tick riêng từng người được.
+  const otherDeptUserIds = users.filter((u) => u.department_id !== hostDeptId).map((u) => u.id);
+  const allOthersSelected =
+    otherDeptUserIds.length > 0 && otherDeptUserIds.every((id) => selectedParticipants.includes(id));
+  function toggleOtherDepartments() {
+    setSelectedParticipants((prev) =>
+      allOthersSelected
+        ? prev.filter((id) => !otherDeptUserIds.includes(id))
+        : Array.from(new Set([...prev, ...otherDeptUserIds]))
+    );
+  }
+
   function toggleParticipant(id: string) {
     setSelectedParticipants((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
@@ -160,7 +176,46 @@ export default function CreateMeetingForm({
       return;
     }
 
+    // QUAN TRỌNG: <input type="datetime-local"> trả về chuỗi KHÔNG có múi giờ
+    // (VD "2026-10-21T08:00"). Nếu gửi nguyên chuỗi này lên server (Vercel chạy
+    // UTC) thì Postgres hiểu là 08:00 UTC => hiển thị giờ VN thành 15:00.
+    // Phải đổi sang ISO (có "Z") ngay ở trình duyệt, nơi biết đúng múi giờ người dùng
+    // — giống cách tab-info.tsx (chức năng Sửa) đang làm.
+    const startRaw = String(formData.get('start_at') || '');
+    const endRaw = String(formData.get('end_at') || '');
+    const startDate = new Date(startRaw);
+    const endDate = new Date(endRaw);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      setError('Thời gian bắt đầu/kết thúc không hợp lệ.');
+      return;
+    }
+    const start_at = startDate.toISOString();
+    const end_at = endDate.toISOString();
+
     startTransition(async () => {
+      // Cảnh báo trước nếu có BGĐ/Trưởng-phó phòng trong danh sách được tag đã
+      // bận cuộc họp khác trùng khung giờ này — không CHẶN tạo, chỉ hỏi lại để
+      // Thư ký/người tạo chủ động xác nhận có muốn xếp trùng hay đổi giờ.
+      const conflictRes = await checkMeetingScheduleConflictsAction({
+        participant_user_ids: selectedParticipants,
+        start_at,
+        end_at
+      });
+      if ('conflicts' in conflictRes && conflictRes.conflicts.length > 0) {
+        const lines = conflictRes.conflicts.map((c) => {
+          const roleLabel = c.role === 'BGD' ? 'BGĐ' : 'Trưởng/phó phòng';
+          return `• ${c.full_name} (${roleLabel}) đang bận "${c.meeting_title}" lúc ${formatTimeVN(c.start_at, {
+            hour: '2-digit',
+            minute: '2-digit'
+          })}–${formatTimeVN(c.end_at, { hour: '2-digit', minute: '2-digit' })} ngày ${formatDateVN(c.start_at)}`;
+        });
+        const ok = confirm(
+          `Trùng lịch với ${conflictRes.conflicts.length} người:\n\n${lines.join('\n')}\n\n` +
+            'Vẫn tiếp tục tạo cuộc họp ở khung giờ này?'
+        );
+        if (!ok) return;
+      }
+
       const res = await createMeetingAction({
         title: String(formData.get('title') || ''),
         summary: String(formData.get('summary') || ''),
@@ -170,8 +225,8 @@ export default function CreateMeetingForm({
           meetingType === 'EXTERNAL'
             ? impliedHostDepartmentId
             : String(formData.get('host_department_id') || ''),
-        start_at: String(formData.get('start_at') || ''),
-        end_at: String(formData.get('end_at') || ''),
+        start_at,
+        end_at,
         visibility_duration_hours: visRaw === '' ? null : Number(visRaw),
         // Không còn cấp quyền theo CẢ PHÒNG nữa — luôn rỗng. Quyền xem hoàn
         // toàn dựa vào participant_user_ids (từng người cụ thể được tick).
@@ -286,7 +341,13 @@ export default function CreateMeetingForm({
             <div>
               <label className="text-sm font-medium block mb-1">Phòng chủ trì *</label>
               {canPickAnyDepartment ? (
-                <select name="host_department_id" required defaultValue={defaultDepartmentId} className="input">
+                <select
+                  name="host_department_id"
+                  required
+                  value={hostDeptId}
+                  onChange={(e) => setHostDeptId(e.target.value)}
+                  className="input"
+                >
                   {departments.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.name}
@@ -354,9 +415,14 @@ export default function CreateMeetingForm({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium">Phòng ban (chọn nhanh theo phòng)</label>
-                <button type="button" onClick={toggleAll} className="text-xs text-gold underline">
-                  {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={toggleOtherDepartments} className="text-xs text-gold underline">
+                    {allOthersSelected ? 'Bỏ chọn các phòng khác' : 'Chọn tất cả phòng khác'}
+                  </button>
+                  <button type="button" onClick={toggleAll} className="text-xs text-gold underline">
+                    {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                  </button>
+                </div>
               </div>
               <p className="text-xs text-inksoft mb-2">
                 Tick 1 phòng sẽ tự động tick <b>toàn bộ người trong phòng đó</b> ở danh sách "Người được xem
@@ -380,6 +446,7 @@ export default function CreateMeetingForm({
                     <input
                       type="checkbox"
                       checked={isDeptFullySelected(d.id)}
+                      disabled={departmentUserIds(d.id).length === 0}
                       ref={(el) => {
                         if (el) el.indeterminate = isDeptPartiallySelected(d.id);
                       }}
@@ -395,6 +462,11 @@ export default function CreateMeetingForm({
                     >
                       {d.name}
                     </button>
+                    <span className="text-xs text-inksoft flex-shrink-0">
+                      {departmentUserIds(d.id).length > 0
+                        ? `${departmentUserIds(d.id).length} người`
+                        : 'chưa có người dùng'}
+                    </span>
                   </div>
                 ))}
               </div>

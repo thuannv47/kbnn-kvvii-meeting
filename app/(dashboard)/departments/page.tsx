@@ -17,7 +17,7 @@ export default async function DepartmentsPage() {
 
       {canManageOrg(profile) && <DepartmentForm />}
 
-      <DepartmentFilter departments={departments ?? []} />
+      <DepartmentFilter departments={departments ?? []} canManage={canManageOrg(profile)} />
     </div>
   );
 }

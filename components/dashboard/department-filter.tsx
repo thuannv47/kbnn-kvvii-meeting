@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import DepartmentRowActions from './department-row-actions';
 
 type Department = {
   id: string;
@@ -15,7 +16,7 @@ const typeLabel: Record<string, string> = {
   BRANCH: 'Chi nhánh / PGD'
 };
 
-export default function DepartmentFilter({ departments }: { departments: Department[] }) {
+export default function DepartmentFilter({ departments, canManage = false }: { departments: Department[]; canManage?: boolean }) {
   const [q, setQ] = useState('');
   const [type, setType] = useState<'ALL' | 'HEAD_OFFICE' | 'BRANCH'>('ALL');
   const [status, setStatus] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
@@ -87,6 +88,7 @@ export default function DepartmentFilter({ departments }: { departments: Departm
               <th>Tên</th>
               <th>Loại</th>
               <th>Trạng thái</th>
+              {canManage && <th className="text-right">Thao tác</th>}
             </tr>
           </thead>
           <tbody>
@@ -102,11 +104,16 @@ export default function DepartmentFilter({ departments }: { departments: Departm
                     <span className="tag-muted">Ngừng</span>
                   )}
                 </td>
+                {canManage && (
+                  <td>
+                    <DepartmentRowActions dept={d} />
+                  </td>
+                )}
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={4} className="table-empty">
+                <td colSpan={canManage ? 5 : 4} className="table-empty">
                   {departments.length === 0
                     ? 'Chưa có phòng ban nào.'
                     : 'Không tìm thấy phòng ban phù hợp với bộ lọc.'}

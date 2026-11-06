@@ -39,6 +39,19 @@ export function IconCalendar(props: IconProps) {
   );
 }
 
+/** Lịch dạng lưới ngày (khác IconCalendar — icon đó dùng cho "Cuộc họp" dạng danh sách). */
+export function IconCalendarDays(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+      <circle cx="8" cy="15" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="15" r="1" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="15" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function IconSearch(props: IconProps) {
   return (
     <svg {...base(props)}>

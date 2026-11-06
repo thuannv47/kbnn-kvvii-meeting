@@ -3,9 +3,11 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { createServerSupabase } from '@/lib/supabase/server';
+import { createAdminSupabase } from '@/lib/supabase/admin';
 import { requireUser } from '@/lib/auth/current-user';
 import { canCreateMeeting, canHostDepartment, canManageMeeting, canDeleteMeeting, canDeleteMeetingAsThuky } from '@/lib/permissions';
 import { logAudit } from '@/lib/audit/log';
+import { sendPushToUsers } from '@/lib/push/send';
 
 const createMeetingSchema = z.object({
   title: z.string().min(3, 'Tiêu đề tối thiểu 3 ký tự'),
@@ -28,6 +30,90 @@ function genMeetingCode() {
     d.getDate()
   ).padStart(2, '0')}`;
   return `HNK-${stamp}-${Math.floor(Math.random() * 900 + 100)}`;
+}
+
+export type ScheduleConflict = {
+  user_id: string;
+  full_name: string;
+  role: 'BGD' | 'MANAGER';
+  meeting_id: string;
+  meeting_title: string;
+  start_at: string;
+  end_at: string;
+};
+
+/**
+ * Kiểm tra xem trong số người được tag tham dự (participant_user_ids), có ai
+ * thuộc BGĐ hoặc Trưởng/phó phòng (MANAGER) đã được tag vào MỘT cuộc họp khác
+ * bị TRÙNG khoảng thời gian với cuộc họp đang tạo/sửa hay không — để cảnh báo
+ * ngay cho Thư ký/người tạo TRƯỚC khi họ chốt lịch, tránh xếp trùng lịch lãnh đạo.
+ *
+ * Dùng service-role (bỏ qua RLS) vì đây là kiểm tra LỊCH BẬN xuyên phòng ban —
+ * người tạo cuộc họp có thể không có quyền XEM nội dung cuộc họp kia, nhưng vẫn
+ * cần biết là lãnh đạo đang bận vào giờ đó để tránh mời trùng. Chỉ trả về tối
+ * thiểu thông tin cần thiết (tên cuộc họp trùng + khung giờ), không lộ thêm gì khác.
+ */
+export async function checkMeetingScheduleConflictsAction(input: {
+  participant_user_ids: string[];
+  start_at: string;
+  end_at: string;
+  /** Khi SỬA cuộc họp: bỏ qua chính cuộc họp đang sửa để không tự báo trùng với chính nó. */
+  exclude_meeting_id?: string;
+}): Promise<{ conflicts: ScheduleConflict[] } | { error: string }> {
+  await requireUser();
+
+  if (input.participant_user_ids.length === 0 || !input.start_at || !input.end_at) {
+    return { conflicts: [] };
+  }
+  const newStart = new Date(input.start_at).getTime();
+  const newEnd = new Date(input.end_at).getTime();
+  if (Number.isNaN(newStart) || Number.isNaN(newEnd) || newEnd <= newStart) {
+    return { conflicts: [] };
+  }
+
+  const admin = createAdminSupabase();
+
+  const { data: profilesRaw } = await admin
+    .from('profiles')
+    .select('id, full_name, role')
+    .in('id', input.participant_user_ids)
+    .in('role', ['BGD', 'MANAGER']);
+
+  const watchedUsers = (profilesRaw ?? []) as { id: string; full_name: string; role: 'BGD' | 'MANAGER' }[];
+  if (watchedUsers.length === 0) return { conflicts: [] };
+
+  const { data: rows } = await admin
+    .from('meeting_participants')
+    .select('user_id, meetings:meeting_id(id, title, start_at, end_at, status)')
+    .in(
+      'user_id',
+      watchedUsers.map((u) => u.id)
+    );
+
+  const conflicts: ScheduleConflict[] = [];
+  for (const row of (rows ?? []) as any[]) {
+    const m = row.meetings;
+    if (!m) continue;
+    if (input.exclude_meeting_id && m.id === input.exclude_meeting_id) continue;
+    if (m.status === 'ARCHIVED') continue; // cuộc họp đã huỷ thì không tính là bận
+    const mStart = new Date(m.start_at).getTime();
+    const mEnd = new Date(m.end_at).getTime();
+    if (mStart < newEnd && mEnd > newStart) {
+      const user = watchedUsers.find((u) => u.id === row.user_id);
+      if (!user) continue;
+      conflicts.push({
+        user_id: user.id,
+        full_name: user.full_name,
+        role: user.role,
+        meeting_id: m.id,
+        meeting_title: m.title,
+        start_at: m.start_at,
+        end_at: m.end_at
+      });
+    }
+  }
+
+  return { conflicts };
 }
 
 export async function createMeetingAction(input: z.infer<typeof createMeetingSchema>) {
@@ -130,6 +216,16 @@ export async function createMeetingAction(input: z.infer<typeof createMeetingSch
       assigned_by: authId
     }));
     await supabase.from('meeting_participants').insert(rows);
+
+    // Chỉ báo ngay nếu cuộc họp mở luôn ở trạng thái OPEN. Nếu tạo ở dạng Nháp,
+    // thông báo sẽ được gửi sau, vào lúc Thư ký/BGD "Duyệt tạo" (xem updateMeetingStatusAction).
+    if (data.status === 'OPEN') {
+      await sendPushToUsers(data.participant_user_ids, {
+        title: 'Bạn được cử tham dự cuộc họp mới',
+        body: meeting.title,
+        url: `/meetings/${meeting.id}`
+      });
+    }
   }
 
   await logAudit({
@@ -159,6 +255,24 @@ export async function updateMeetingStatusAction(meetingId: string, status: 'DRAF
   const { error } = await supabase.from('meetings').update({ status }).eq('id', meetingId);
   if (error) return { error: error.message };
 
+  // Nếu vừa Duyệt tạo (Nháp -> Mở), báo cho những người được cử tham dự riêng lẻ
+  // (meeting_participants) — trường hợp cuộc họp được tạo ở dạng Nháp trước đó nên
+  // chưa được báo lúc tạo (xem createMeetingAction).
+  if (status === 'OPEN' && meeting.status === 'DRAFT') {
+    const { data: participants } = await supabase
+      .from('meeting_participants')
+      .select('user_id')
+      .eq('meeting_id', meetingId);
+    const userIds = (participants ?? []).map((p) => p.user_id).filter(Boolean);
+    if (userIds.length > 0) {
+      await sendPushToUsers(userIds, {
+        title: 'Cuộc họp bạn được cử tham dự đã được duyệt',
+        body: meeting.title,
+        url: `/meetings/${meetingId}`
+      });
+    }
+  }
+
   await logAudit({ userId: authId, action: `SET_MEETING_${status}`, entityType: 'meeting', entityId: meetingId });
   revalidatePath(`/meetings/${meetingId}`);
   return { success: true };
@@ -169,7 +283,9 @@ const updateMeetingInfoSchema = z.object({
   summary: z.string().optional(),
   location: z.string().optional(),
   start_at: z.string(),
-  end_at: z.string()
+  end_at: z.string(),
+  /** Danh sách người được cử tham dự / được xem sau khi sửa. Bỏ qua (undefined) = không đổi. */
+  participant_user_ids: z.array(z.string().uuid()).optional()
 });
 
 /**
@@ -197,7 +313,7 @@ export async function updateMeetingInfoAction(meetingId: string, input: z.infer<
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Dữ liệu không hợp lệ.' };
   }
-  const { title, summary, location, start_at, end_at } = parsed.data;
+  const { title, summary, location, start_at, end_at, participant_user_ids } = parsed.data;
 
   if (new Date(end_at).getTime() <= new Date(start_at).getTime()) {
     return { error: 'Thời gian kết thúc phải sau thời gian bắt đầu.' };
@@ -215,13 +331,59 @@ export async function updateMeetingInfoAction(meetingId: string, input: z.infer<
     .eq('id', meetingId);
   if (error) return { error: error.message };
 
+  // ---- Thêm/bớt người được cử tham dự (meeting_participants) ----
+  let added: string[] = [];
+  let removed: string[] = [];
+  if (participant_user_ids) {
+    const wanted = Array.from(new Set(participant_user_ids));
+
+    // Họp ngoài ngành bắt buộc còn ít nhất 1 người được cử đi (giống lúc tạo).
+    if (meeting.meeting_type === 'EXTERNAL' && wanted.length === 0) {
+      return { error: 'Họp ngoài ngành phải có ít nhất 1 người được cử đi tham dự.' };
+    }
+
+    const { data: currentRows, error: curErr } = await supabase
+      .from('meeting_participants')
+      .select('user_id')
+      .eq('meeting_id', meetingId);
+    if (curErr) return { error: 'Không đọc được danh sách người tham dự: ' + curErr.message };
+
+    const current = (currentRows ?? []).map((r) => r.user_id as string);
+    added = wanted.filter((id) => !current.includes(id));
+    removed = current.filter((id) => !wanted.includes(id));
+
+    if (removed.length > 0) {
+      const { error: delErr } = await supabase
+        .from('meeting_participants')
+        .delete()
+        .eq('meeting_id', meetingId)
+        .in('user_id', removed);
+      if (delErr) return { error: 'Đã lưu thông tin nhưng không bỏ được người khỏi danh sách: ' + delErr.message };
+    }
+    if (added.length > 0) {
+      const { error: insErr } = await supabase
+        .from('meeting_participants')
+        .insert(added.map((user_id) => ({ meeting_id: meetingId, user_id, assigned_by: authId })));
+      if (insErr) return { error: 'Đã lưu thông tin nhưng không thêm được người vào danh sách: ' + insErr.message };
+    }
+  }
+
   await logAudit({
     userId: authId,
     action: 'UPDATE_MEETING_INFO',
     entityType: 'meeting',
     entityId: meetingId,
-    metadata: { title }
+    metadata: { title, participants_added: added, participants_removed: removed }
   });
+
+  // Cuộc họp đã Mở: báo cho những người MỚI được thêm vào danh sách (người cũ đã được báo lúc tạo/duyệt).
+  if (meeting.status === 'OPEN' && added.length > 0) {
+    await sendPushToUsers(added, {
+      title: 'Bạn được cử tham dự cuộc họp',
+      body: title.trim(),
+      url: `/meetings/${meetingId}`
+    });
+  }
 
   revalidatePath(`/meetings/${meetingId}`);
   revalidatePath('/dashboard');
