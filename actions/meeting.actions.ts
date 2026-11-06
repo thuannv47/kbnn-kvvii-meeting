@@ -283,7 +283,9 @@ const updateMeetingInfoSchema = z.object({
   summary: z.string().optional(),
   location: z.string().optional(),
   start_at: z.string(),
-  end_at: z.string()
+  end_at: z.string(),
+  /** Danh sách người được cử tham dự / được xem sau khi sửa. Bỏ qua (undefined) = không đổi. */
+  participant_user_ids: z.array(z.string().uuid()).optional()
 });
 
 /**
@@ -311,7 +313,7 @@ export async function updateMeetingInfoAction(meetingId: string, input: z.infer<
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Dữ liệu không hợp lệ.' };
   }
-  const { title, summary, location, start_at, end_at } = parsed.data;
+  const { title, summary, location, start_at, end_at, participant_user_ids } = parsed.data;
 
   if (new Date(end_at).getTime() <= new Date(start_at).getTime()) {
     return { error: 'Thời gian kết thúc phải sau thời gian bắt đầu.' };
@@ -329,13 +331,59 @@ export async function updateMeetingInfoAction(meetingId: string, input: z.infer<
     .eq('id', meetingId);
   if (error) return { error: error.message };
 
+  // ---- Thêm/bớt người được cử tham dự (meeting_participants) ----
+  let added: string[] = [];
+  let removed: string[] = [];
+  if (participant_user_ids) {
+    const wanted = Array.from(new Set(participant_user_ids));
+
+    // Họp ngoài ngành bắt buộc còn ít nhất 1 người được cử đi (giống lúc tạo).
+    if (meeting.meeting_type === 'EXTERNAL' && wanted.length === 0) {
+      return { error: 'Họp ngoài ngành phải có ít nhất 1 người được cử đi tham dự.' };
+    }
+
+    const { data: currentRows, error: curErr } = await supabase
+      .from('meeting_participants')
+      .select('user_id')
+      .eq('meeting_id', meetingId);
+    if (curErr) return { error: 'Không đọc được danh sách người tham dự: ' + curErr.message };
+
+    const current = (currentRows ?? []).map((r) => r.user_id as string);
+    added = wanted.filter((id) => !current.includes(id));
+    removed = current.filter((id) => !wanted.includes(id));
+
+    if (removed.length > 0) {
+      const { error: delErr } = await supabase
+        .from('meeting_participants')
+        .delete()
+        .eq('meeting_id', meetingId)
+        .in('user_id', removed);
+      if (delErr) return { error: 'Đã lưu thông tin nhưng không bỏ được người khỏi danh sách: ' + delErr.message };
+    }
+    if (added.length > 0) {
+      const { error: insErr } = await supabase
+        .from('meeting_participants')
+        .insert(added.map((user_id) => ({ meeting_id: meetingId, user_id, assigned_by: authId })));
+      if (insErr) return { error: 'Đã lưu thông tin nhưng không thêm được người vào danh sách: ' + insErr.message };
+    }
+  }
+
   await logAudit({
     userId: authId,
     action: 'UPDATE_MEETING_INFO',
     entityType: 'meeting',
     entityId: meetingId,
-    metadata: { title }
+    metadata: { title, participants_added: added, participants_removed: removed }
   });
+
+  // Cuộc họp đã Mở: báo cho những người MỚI được thêm vào danh sách (người cũ đã được báo lúc tạo/duyệt).
+  if (meeting.status === 'OPEN' && added.length > 0) {
+    await sendPushToUsers(added, {
+      title: 'Bạn được cử tham dự cuộc họp',
+      body: title.trim(),
+      url: `/meetings/${meetingId}`
+    });
+  }
 
   revalidatePath(`/meetings/${meetingId}`);
   revalidatePath('/dashboard');

@@ -21,6 +21,7 @@ export default function MeetingTabs(props: {
   comments: any[];
   conclusion: MeetingConclusion | null;
   allDepartments: Department[];
+  allUsers?: any[];
   profile: Profile;
   canManage: boolean;
   canDelete: boolean;
@@ -107,6 +108,7 @@ export default function MeetingTabs(props: {
             perms={props.perms}
             participants={participants}
             allDepartments={props.allDepartments}
+            allUsers={props.allUsers}
             canManage={canManage}
             canDelete={props.canDelete}
             canDeleteAsThuky={props.canDeleteAsThuky}

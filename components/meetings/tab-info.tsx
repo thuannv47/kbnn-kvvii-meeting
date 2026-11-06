@@ -1,12 +1,30 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Meeting, MeetingDepartment, MeetingParticipant } from '@/types/meeting';
 import type { Department } from '@/types/user';
 import { updateMeetingStatusAction, deleteMeetingAction, updateMeetingInfoAction, checkMeetingScheduleConflictsAction } from '@/actions/meeting.actions';
 import { formatDateVN, formatTimeVN } from '@/lib/format-date';
 import { IconPin, IconCalendarDays, IconClock, IconUser, IconCheck, IconFile } from '@/components/ui/icons';
+
+type PickableUser = {
+  id: string;
+  full_name: string;
+  position: string | null;
+  department_id: string | null;
+  departments?: { name: string } | null;
+};
+
+/** Bỏ dấu tiếng Việt để tìm kiếm không phân biệt dấu. */
+function normalizeVN(s: string) {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase();
+}
 
 /** Chuyển ISO timestamp -> giá trị cho <input type="datetime-local"> (giờ địa phương, không giây). */
 function toDatetimeLocalValue(iso: string) {
@@ -18,6 +36,8 @@ function toDatetimeLocalValue(iso: string) {
 export default function TabInfo({
   meeting,
   participants = [],
+  allDepartments = [],
+  allUsers = [],
   canManage,
   canDelete,
   canDeleteAsThuky
@@ -26,6 +46,7 @@ export default function TabInfo({
   perms?: MeetingDepartment[];
   participants?: (MeetingParticipant & { profiles?: { full_name: string; position: string | null } })[];
   allDepartments?: Department[];
+  allUsers?: PickableUser[];
   canManage: boolean;
   canDelete: boolean;
   canDeleteAsThuky: boolean;
@@ -51,6 +72,66 @@ export default function TabInfo({
     end_at: toDatetimeLocalValue(meeting.end_at)
   });
 
+  // Danh sách người được cử tham dự/được xem: khởi tạo từ dữ liệu hiện có, chỉnh sửa tại chỗ,
+  // chỉ ghi xuống DB khi bấm "Lưu".
+  const currentParticipantIds = participants.map((p) => p.user_id);
+  const [selectedIds, setSelectedIds] = useState<string[]>(currentParticipantIds);
+  const [userSearch, setUserSearch] = useState('');
+  const [deptSearch, setDeptSearch] = useState('');
+  const [deptFilter, setDeptFilter] = useState<string | null>(null);
+
+  // Người đang nằm trong danh sách nhưng không có trong allUsers (VD tài khoản đã bị vô hiệu hoá)
+  // vẫn phải hiện ra để có thể loại bỏ.
+  const knownUsers = useMemo<PickableUser[]>(() => {
+    const byId = new Map(allUsers.map((u) => [u.id, u]));
+    for (const p of participants) {
+      if (!byId.has(p.user_id)) {
+        byId.set(p.user_id, {
+          id: p.user_id,
+          full_name: p.profiles?.full_name ?? 'Người dùng',
+          position: p.profiles?.position ?? null,
+          department_id: null,
+          departments: null
+        });
+      }
+    }
+    return Array.from(byId.values());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allUsers, participants]);
+
+  const selectedUsers = knownUsers.filter((u) => selectedIds.includes(u.id));
+  const filteredDepartments = deptSearch.trim()
+    ? allDepartments.filter((d) => normalizeVN(d.name).includes(normalizeVN(deptSearch.trim())))
+    : allDepartments;
+  const filteredUsers = knownUsers.filter((u) => {
+    if (deptFilter && u.department_id !== deptFilter) return false;
+    const q = normalizeVN(userSearch.trim());
+    if (!q) return true;
+    return (
+      normalizeVN(u.full_name).includes(q) ||
+      normalizeVN(u.position || '').includes(q) ||
+      normalizeVN(u.departments?.name || '').includes(q)
+    );
+  });
+  const deptUserIds = (deptId: string) => knownUsers.filter((u) => u.department_id === deptId).map((u) => u.id);
+  const isDeptFull = (deptId: string) => {
+    const ids = deptUserIds(deptId);
+    return ids.length > 0 && ids.every((id) => selectedIds.includes(id));
+  };
+  const isDeptPartial = (deptId: string) => {
+    const ids = deptUserIds(deptId);
+    return ids.some((id) => selectedIds.includes(id)) && !isDeptFull(deptId);
+  };
+  function toggleDept(deptId: string) {
+    const ids = deptUserIds(deptId);
+    const turnOn = !isDeptFull(deptId);
+    setSelectedIds((prev) => (turnOn ? Array.from(new Set([...prev, ...ids])) : prev.filter((id) => !ids.includes(id))));
+  }
+  function toggleUser(id: string) {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+  const canPickPeople = allUsers.length > 0; // chỉ hiện bộ chọn khi đã tải được danh sách người dùng
+
   function handleSaveInfo() {
     setEditError(null);
     startSaveTransition(async () => {
@@ -59,7 +140,7 @@ export default function TabInfo({
 
       // Đổi giờ có thể phát sinh trùng lịch mới với BGĐ/Trưởng-phó phòng đã
       // được tag tham dự cuộc họp này — cảnh báo trước, không chặn lưu.
-      const participantIds = participants.map((p) => p.user_id).filter(Boolean);
+      const participantIds = (canPickPeople ? selectedIds : participants.map((p) => p.user_id)).filter(Boolean);
       if (participantIds.length > 0) {
         const conflictRes = await checkMeetingScheduleConflictsAction({
           participant_user_ids: participantIds,
@@ -88,7 +169,8 @@ export default function TabInfo({
         summary: form.summary,
         location: form.location,
         start_at,
-        end_at
+        end_at,
+        ...(canPickPeople ? { participant_user_ids: selectedIds } : {})
       });
       if (res?.error) {
         setEditError(res.error);
@@ -107,6 +189,10 @@ export default function TabInfo({
       start_at: toDatetimeLocalValue(meeting.start_at),
       end_at: toDatetimeLocalValue(meeting.end_at)
     });
+    setSelectedIds(currentParticipantIds);
+    setUserSearch('');
+    setDeptSearch('');
+    setDeptFilter(null);
     setEditError(null);
     setIsEditing(false);
   }
@@ -263,6 +349,126 @@ export default function TabInfo({
                 placeholder="VD: Phòng họp A, tầng 3 hoặc đường link Zoom/Google Meet"
               />
             </div>
+            {canPickPeople && (
+              <div className="space-y-3 border-t border-line pt-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs text-inksoft">Phòng ban (chọn nhanh theo phòng)</label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedIds(
+                          knownUsers.every((u) => selectedIds.includes(u.id)) ? [] : knownUsers.map((u) => u.id)
+                        )
+                      }
+                      className="text-xs text-gold underline"
+                    >
+                      {knownUsers.every((u) => selectedIds.includes(u.id)) ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-inksoft mb-2">
+                    Tick 1 phòng để thêm <b>toàn bộ người trong phòng</b> vào danh sách bên dưới, bỏ tick để loại cả
+                    phòng. Bấm vào <b>tên phòng</b> để lọc nhanh người của phòng đó.
+                  </p>
+                  <input
+                    type="text"
+                    value={deptSearch}
+                    onChange={(e) => setDeptSearch(e.target.value)}
+                    placeholder="Tìm theo tên phòng ban…"
+                    className="input mb-2"
+                  />
+                  <div className="max-h-48 overflow-y-auto rounded border border-line bg-surface divide-y divide-line">
+                    {filteredDepartments.length === 0 && (
+                      <p className="text-xs text-inksoft px-3 py-2">Không tìm thấy phòng nào.</p>
+                    )}
+                    {filteredDepartments.map((d) => (
+                      <div key={d.id} className="flex items-center gap-2 text-sm px-3 py-2 hover:bg-paper2/60">
+                        <input
+                          type="checkbox"
+                          checked={isDeptFull(d.id)}
+                          ref={(el) => {
+                            if (el) el.indeterminate = isDeptPartial(d.id);
+                          }}
+                          onChange={() => toggleDept(d.id)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setDeptFilter(deptFilter === d.id ? null : d.id)}
+                          className={`flex-1 text-left ${deptFilter === d.id ? 'text-gold font-medium' : ''}`}
+                        >
+                          {d.name}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-inksoft mb-1 block">
+                    {meeting.meeting_type === 'EXTERNAL'
+                      ? 'Người được cử đi tham dự'
+                      : 'Người được xem cuộc họp'}{' '}
+                    ({selectedUsers.length})
+                  </label>
+                  {selectedUsers.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {selectedUsers.map((u) => (
+                        <span
+                          key={u.id}
+                          className="inline-flex items-center gap-1 rounded-full bg-ink text-white text-xs px-2.5 py-1"
+                        >
+                          {u.full_name}
+                          <button
+                            type="button"
+                            onClick={() => toggleUser(u.id)}
+                            className="ml-0.5 opacity-70 hover:opacity-100"
+                            aria-label={`Loại ${u.full_name}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {deptFilter && (
+                    <p className="text-xs mb-2">
+                      <span className="text-inksoft">Đang lọc theo phòng: </span>
+                      <span className="text-gold font-medium">
+                        {allDepartments.find((d) => d.id === deptFilter)?.name}
+                      </span>{' '}
+                      <button type="button" onClick={() => setDeptFilter(null)} className="underline text-inksoft">
+                        bỏ lọc
+                      </button>
+                    </p>
+                  )}
+                  <input
+                    type="text"
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    placeholder="Tìm theo tên, chức danh hoặc phòng ban…"
+                    className="input mb-2"
+                  />
+                  <div className="max-h-52 overflow-y-auto rounded border border-line bg-surface divide-y divide-line">
+                    {filteredUsers.length === 0 && (
+                      <p className="text-xs text-inksoft px-3 py-2">Không tìm thấy ai phù hợp.</p>
+                    )}
+                    {filteredUsers.map((u) => (
+                      <label key={u.id} className="flex items-center gap-2 text-sm px-3 py-2 cursor-pointer">
+                        <input type="checkbox" checked={selectedIds.includes(u.id)} onChange={() => toggleUser(u.id)} />
+                        <span>
+                          {u.full_name}
+                          <span className="text-inksoft">
+                            {' '}
+                            — {u.position || 'Chưa có chức danh'}
+                            {u.departments?.name ? ` · ${u.departments.name}` : ''}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
             {editError && <p className="text-sm text-red">{editError}</p>}
             <div className="flex gap-2">
               <button onClick={handleSaveInfo} disabled={isSaving} className="btn-primary">
@@ -277,11 +483,13 @@ export default function TabInfo({
         )}
       </div>
 
-      {meeting.meeting_type === 'EXTERNAL' && !isEditing && (
+      {!isEditing && (
         <div className="card p-4">
-          <h3 className="font-semibold mb-3">Thành phần được cử đi tham dự</h3>
+          <h3 className="font-semibold mb-3">
+            {meeting.meeting_type === 'EXTERNAL' ? 'Thành phần được cử đi tham dự' : 'Người được xem cuộc họp'}
+          </h3>
           {participants.length === 0 ? (
-            <p className="text-sm text-inksoft">Chưa tag người nào.</p>
+            <p className="text-sm text-inksoft">Chưa có người nào trong danh sách.</p>
           ) : (
             <ul className="space-y-2">
               {participants.map((p) => (
