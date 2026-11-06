@@ -15,12 +15,11 @@ export default async function MeetingDetailPage({ params }: { params: { id: stri
   const { data: perms } = await supabase.from('meeting_departments').select('*').eq('meeting_id', params.id);
   const { data: participants } = await supabase
     .from('meeting_participants')
-    .select('*, profiles:user_id(full_name, position, department_id)')
+    .select('*, profiles:user_id(full_name, position)')
     .eq('meeting_id', params.id);
-  const { data: bgdDept } = await supabase.from('departments').select('id').eq('code', 'BGD').maybeSingle();
   const { data: hostDept } = await supabase.from('departments').select('*').eq('id', meeting.host_department_id).single();
 
-  if (!canViewMeeting(meeting as any, (perms ?? []) as any, profile, (participants ?? []) as any, bgdDept?.id ?? null)) notFound();
+  if (!canViewMeeting(meeting as any, (perms ?? []) as any, profile, (participants ?? []) as any)) notFound();
 
   const [{ data: documents }, { data: comments }, { data: conclusion }, { data: allDepartments }] =
     await Promise.all([

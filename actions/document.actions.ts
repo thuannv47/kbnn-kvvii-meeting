@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/auth/current-user';
 import { canUploadDocument, canAddVersion, canDeleteDocument } from '@/lib/permissions';
-import { getBgdDepartmentId } from '@/lib/meetings/bgd';
 import { logAudit } from '@/lib/audit/log';
 import { buildStoragePath, getUploadUrl, deleteFile, MAX_FILE_SIZE, ALLOWED_MIME } from '@/lib/storage/b2';
 
@@ -12,9 +11,9 @@ async function loadMeetingContext(supabase: ReturnType<typeof createServerSupaba
   const { data: meeting } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
   const [{ data: perms }, { data: participants }] = await Promise.all([
     supabase.from('meeting_departments').select('*').eq('meeting_id', meetingId),
-    supabase.from('meeting_participants').select('*, profiles:user_id(department_id)').eq('meeting_id', meetingId)
+    supabase.from('meeting_participants').select('*').eq('meeting_id', meetingId)
   ]);
-  return { meeting, perms: perms ?? [], participants: participants ?? [], bgdDepartmentId: await getBgdDepartmentId(supabase) };
+  return { meeting, perms: perms ?? [], participants: participants ?? [] };
 }
 
 function validateFileMeta(fileSize: number, mimeType: string) {
@@ -42,9 +41,9 @@ export async function requestDocumentUploadUrlAction(input: {
   const metaError = validateFileMeta(input.fileSize, input.mimeType);
   if (metaError) return { error: metaError };
 
-  const { meeting, perms, participants, bgdDepartmentId } = await loadMeetingContext(supabase, input.meetingId);
+  const { meeting, perms, participants } = await loadMeetingContext(supabase, input.meetingId);
   if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
-  if (!canUploadDocument(meeting as any, perms as any, profile, participants as any, bgdDepartmentId)) {
+  if (!canUploadDocument(meeting as any, perms as any, profile, participants as any)) {
     return { error: 'Bạn không có quyền tải tài liệu lên cuộc họp này.' };
   }
 
@@ -87,9 +86,9 @@ export async function confirmDocumentUploadAction(input: {
     return { error: 'Thiếu thông tin bắt buộc (tiêu đề / file).' };
   }
 
-  const { meeting, perms, participants, bgdDepartmentId } = await loadMeetingContext(supabase, input.meetingId);
+  const { meeting, perms, participants } = await loadMeetingContext(supabase, input.meetingId);
   if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
-  if (!canUploadDocument(meeting as any, perms as any, profile, participants as any, bgdDepartmentId)) {
+  if (!canUploadDocument(meeting as any, perms as any, profile, participants as any)) {
     return { error: 'Bạn không có quyền tải tài liệu lên cuộc họp này.' };
   }
 
