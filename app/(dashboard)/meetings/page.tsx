@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
-import { canCreateMeeting } from '@/lib/permissions';
+import { canCreateMeeting, canSeeDraftMeeting } from '@/lib/permissions';
 import { isMeetingRelevantToDepartment, sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
 import { getMeetingDisplayStatus } from '@/lib/meetings/status';
 import type { Meeting, MeetingType } from '@/types/meeting';
@@ -35,7 +35,7 @@ export default async function MeetingsListPage({
     .from('meetings')
     .select('*, departments:host_department_id(name)');
 
-  const all = (meetings ?? []) as Row[];
+  const all = ((meetings ?? []) as Row[]).filter((m) => canSeeDraftMeeting(m as any, profile));
   const counts: Record<MeetingType, number> = {
     INTERNAL: all.filter((m) => m.meeting_type === 'INTERNAL').length,
     EXTERNAL: all.filter((m) => m.meeting_type === 'EXTERNAL').length

@@ -56,6 +56,23 @@ export function canHostDepartment(u: Profile | null | undefined, departmentId: s
  * 3) Họp NGOÀI NGÀNH: bỏ hẳn logic phòng ban VÀ logic BGD ở MỌI trạng thái
  *    — chỉ người tạo, ADMIN, và người được TAG mới thấy được.
  */
+/**
+ * Cuộc họp NHÁP (DRAFT) "chưa có hiệu lực": chỉ NGƯỜI TẠO, các thành viên của PHÒNG CHỦ TRÌ
+ * (và ADMIN hệ thống, để còn vào xoá được bản nháp) mới nhìn thấy. Người được tag tham dự,
+ * phòng được cấp quyền xem, BGD, Thư ký phòng khác… chỉ thấy sau khi cuộc họp được DUYỆT.
+ * Cuộc họp đã duyệt (không phải DRAFT) -> luôn true ở đây, quyền xem tiếp tục theo các hàm bên dưới.
+ */
+export function canSeeDraftMeeting(
+  meeting: Pick<Meeting, 'status' | 'created_by' | 'host_department_id'>,
+  u?: Profile | null
+) {
+  if (!u) return false;
+  if (meeting.status !== 'DRAFT') return true;
+  if (isAdmin(u)) return true;
+  if (meeting.created_by === u.id) return true;
+  return !!u.department_id && meeting.host_department_id === u.department_id;
+}
+
 export function canViewMeeting(
   meeting: Meeting,
   perms: MeetingDepartment[],
@@ -63,6 +80,8 @@ export function canViewMeeting(
   participants: MeetingParticipant[] = []
 ) {
   if (!u) return false;
+  // NHÁP: chỉ người tạo + phòng chủ trì (+ ADMIN) — chặn trước mọi quyền khác.
+  if (meeting.status === 'DRAFT') return canSeeDraftMeeting(meeting, u);
   if (isAdmin(u)) return true;
   // THƯ KÝ xem được TOÀN BỘ cuộc họp (mọi phòng/loại/trạng thái) — khớp với
   // can_view_meeting() ở supabase/migrations/0015_thuky_view_all_meetings.sql.
@@ -70,7 +89,6 @@ export function canViewMeeting(
   if (meeting.created_by === u.id) return true;
   if (participants.some((p) => p.user_id === u.id)) return true;
   if (meeting.meeting_type !== 'INTERNAL') return false;
-  if (meeting.status === 'DRAFT') return false;
   if (isBGD(u)) return true;
   if (meeting.host_department_id === u.department_id) return true;
   return perms.some((p) => p.department_id === u.department_id && p.can_view);
@@ -83,11 +101,11 @@ export function canCommentMeeting(
   participants: MeetingParticipant[] = []
 ) {
   if (!u) return false;
+  if (meeting.status === 'DRAFT') return canSeeDraftMeeting(meeting, u);
   if (isAdmin(u)) return true;
   if (meeting.created_by === u.id) return true;
   if (participants.some((p) => p.user_id === u.id)) return true;
   if (meeting.meeting_type !== 'INTERNAL') return false;
-  if (meeting.status === 'DRAFT') return false;
   if (isBGD(u)) return true;
   if (meeting.host_department_id === u.department_id) return true;
   return perms.some((p) => p.department_id === u.department_id && p.can_comment);

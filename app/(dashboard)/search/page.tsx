@@ -1,3 +1,4 @@
+import { canSeeDraftMeeting } from '@/lib/permissions';
 import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
 import PageHeader from '@/components/dashboard/page-header';
@@ -9,7 +10,7 @@ export default async function SearchPage({
 }: {
   searchParams: { q?: string; department?: string; status?: string; sort?: 'asc' | 'desc' };
 }) {
-  await requireUser();
+  const { profile } = await requireUser();
   const supabase = createServerSupabase();
   const q = searchParams.q?.trim() ?? '';
   const sort = searchParams.sort === 'asc' ? 'asc' : 'desc';
@@ -27,7 +28,9 @@ export default async function SearchPage({
   if (searchParams.department) query = query.eq('host_department_id', searchParams.department);
   if (searchParams.status) query = query.eq('status', searchParams.status);
 
-  const { data: results } = await query;
+  const { data: resultsRaw } = await query;
+  // Nháp chưa có hiệu lực: chỉ người tạo / phòng chủ trì thấy.
+  const results = (resultsRaw ?? []).filter((m: any) => canSeeDraftMeeting(m, profile));
   const hasAdvancedFilter = !!(searchParams.department || searchParams.status);
 
   return (

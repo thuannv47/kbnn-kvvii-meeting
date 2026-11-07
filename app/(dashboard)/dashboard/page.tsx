@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { getMeetingDisplayStatus } from '@/lib/meetings/status';
+import { canSeeDraftMeeting } from '@/lib/permissions';
 import { isMeetingRelevantToDepartment, sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
 import DashboardBanner from '@/components/dashboard/dashboard-banner';
 import type { Meeting } from '@/types/meeting';
@@ -26,7 +27,8 @@ export default async function DashboardPage() {
     .select('*')
     .or(`visible_until.is.null,visible_until.gte.${nowIso}`);
 
-  const list = (meetings ?? []) as Meeting[];
+  // Nháp chưa có hiệu lực: chỉ người tạo / phòng chủ trì mới thấy ở Trang chủ.
+  const list = ((meetings ?? []) as Meeting[]).filter((m) => canSeeDraftMeeting(m, profile));
   const allIds = list.map((m) => m.id);
 
   // Lấy phân quyền phòng ban + người được tag cho TOÀN BỘ danh sách (không chỉ
@@ -98,6 +100,8 @@ export default async function DashboardPage() {
   const { data: monthMeetingsRaw } = await supabase
     .from('meetings')
     .select('id, status, start_at, end_at')
+    // Thống kê chỉ tính cuộc họp ĐÃ DUYỆT — bản Nháp chưa có hiệu lực nên không đếm.
+    .neq('status', 'DRAFT')
     .gte('start_at', monthStartIso)
     .lt('start_at', monthEndIso);
   const monthMeetings = (monthMeetingsRaw ?? []) as Pick<Meeting, 'id' | 'status' | 'start_at' | 'end_at'>[];

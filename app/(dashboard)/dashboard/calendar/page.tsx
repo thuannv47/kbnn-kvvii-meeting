@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
+import { canSeeDraftMeeting } from '@/lib/permissions';
 import type { Meeting } from '@/types/meeting';
 import PageHeader from '@/components/dashboard/page-header';
 import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
@@ -62,7 +63,9 @@ export default async function MeetingsCalendarPage({
     .gte('end_at', monthStart.toISOString());
 
   const meetings = sortMeetingsByStartThenTitle(
-    (meetingsRaw ?? []) as (Meeting & { departments?: { name: string } })[],
+    ((meetingsRaw ?? []) as (Meeting & { departments?: { name: string } })[]).filter((m) =>
+      canSeeDraftMeeting(m, profile)
+    ),
     'asc'
   );
 

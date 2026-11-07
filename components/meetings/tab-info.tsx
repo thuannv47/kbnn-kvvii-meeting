@@ -520,8 +520,9 @@ export default function TabInfo({
             <h3 className="font-semibold">Cuộc họp đang ở dạng Nháp</h3>
           </div>
           <p className="text-sm text-inksoft mb-3">
-            Hiện chỉ mình bạn thấy được cuộc họp này. Kiểm tra lại thông tin, sau đó bấm
-            "Duyệt tạo cuộc họp" để các phòng ban đã chọn khi tạo bắt đầu nhìn thấy.
+            Cuộc họp chưa có hiệu lực: hiện chỉ người thiết lập và phòng chủ trì thấy được. Kiểm tra lại
+            thông tin, sau đó bấm "Duyệt tạo cuộc họp" để những người được cử tham dự và các phòng ban
+            đã chọn bắt đầu nhìn thấy.
           </p>
           <button onClick={handleApprove} disabled={isApproving} className="btn-primary">
             {isApproving ? <span className="spinner mr-1.5" /> : <IconCheck size={15} className="mr-1.5" aria-hidden />}
