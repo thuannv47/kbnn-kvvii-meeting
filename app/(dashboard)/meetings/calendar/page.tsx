@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth/current-user';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { sortMeetingsByStartThenTitle } from '@/lib/meetings/relevance';
+import { canSeeDraftMeeting } from '@/lib/permissions';
 import type { Meeting, MeetingType, MeetingStatus } from '@/types/meeting';
 import PageHeader from '@/components/dashboard/page-header';
 import MeetingStatusBadge from '@/components/meetings/meeting-status-badge';
@@ -85,6 +86,9 @@ export default async function MeetingsCalendarPage({
   const merged = new Map<string, CalendarMeeting>();
 
   for (const row of (overviewRaw ?? []) as any[]) {
+    // Bản NHÁP chưa có hiệu lực: không đưa vào lịch toàn ngành. Nháp của chính mình / phòng mình
+    // (nếu có) sẽ vào từ NGUỒN 2 bên dưới.
+    if (row.status === 'DRAFT') continue;
     const leaders = { bgd: [] as string[], manager: [] as string[] };
     for (const l of (row.leaders ?? []) as { full_name: string; role: string }[]) {
       if (l.role === 'BGD') leaders.bgd.push(l.full_name);
@@ -115,6 +119,7 @@ export default async function MeetingsCalendarPage({
   }
 
   for (const row of (ownScopeRaw ?? []) as any[]) {
+    if (!canSeeDraftMeeting(row, profile)) continue;
     const leaders = { bgd: [] as string[], manager: [] as string[] };
     const attendees: CalendarMeeting['attendees'] = [];
     const deptCounts = new Map<string, number>();
