@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import type { Meeting, MeetingDepartment, MeetingParticipant } from '@/types/meeting';
 import type { Profile } from '@/types/user';
 import { canUploadDocument, canAddVersion, canDeleteDocument } from '@/lib/permissions';
@@ -11,22 +11,12 @@ import {
   confirmDocumentVersionAction,
   deleteDocumentAction
 } from '@/actions/document.actions';
+import MultiFilePicker, { fileKey, type FileStatus } from '@/components/ui/multi-file-picker';
+import { runPool, putFileToStorage } from '@/lib/upload/run-pool';
+import { formatFileSize as formatSize } from '@/lib/storage/constants';
 
-/** PUT file thẳng lên B2 bằng URL đã ký (không đi qua Vercel Function). */
-async function putFileToStorage(uploadUrl: string, file: File) {
-  const res = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type || 'application/octet-stream' },
-    body: file
-  });
-  if (!res.ok) throw new Error('Tải file lên kho lưu trữ thất bại.');
-}
-
-function formatSize(bytes?: number | null) {
-  if (!bytes) return '';
-  const mb = bytes / (1024 * 1024);
-  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${(bytes / 1024).toFixed(0)} KB`;
-}
+/** Số file tải lên song song. 3 là mức vừa phải: nhanh hơn tuần tự mà không nghẽn mạng. */
+const UPLOAD_CONCURRENCY = 3;
 
 export default function TabDocuments({
   meeting,
@@ -42,10 +32,11 @@ export default function TabDocuments({
   profile: Profile;
 }) {
   const canUpload = canUploadDocument(meeting, perms, profile, participants);
-  const [isPending, startTransition] = useTransition();
+  const [files, setFiles] = useState<File[]>([]);
+  const [statuses, setStatuses] = useState<Record<string, FileStatus>>({});
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
 
   /** Bỏ phần đuôi mở rộng để dùng làm tiêu đề tài liệu, VD "Báo cáo.docx" -> "Báo cáo". */
   function titleFromFileName(fileName: string) {
@@ -53,80 +44,122 @@ export default function TabDocuments({
     return withoutExt.trim() || fileName;
   }
 
-  function handleUpload(formData: FormData) {
+  function setStatus(key: string, st: FileStatus) {
+    setStatuses((prev) => ({ ...prev, [key]: st }));
+  }
+
+  async function uploadOne(file: File): Promise<string | null> {
+    const urlRes = await requestDocumentUploadUrlAction({
+      meetingId: meeting.id,
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type || 'application/octet-stream'
+    });
+    if (urlRes?.error || !urlRes?.data) return urlRes?.error ?? 'Không xin được URL tải lên.';
+
+    await putFileToStorage(urlRes.data.uploadUrl, file);
+
+    const res = await confirmDocumentUploadAction({
+      meetingId: meeting.id,
+      title: titleFromFileName(file.name),
+      description: '',
+      storagePath: urlRes.data.storagePath,
+      fileName: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      fileSize: file.size
+    });
+    return res?.error ?? null;
+  }
+
+  async function handleUpload() {
+    if (uploading) return;
     setError(null);
-    const files = (formData.getAll('files') as File[]).filter((f) => f && f.size > 0);
     if (files.length === 0) {
       setError('Vui lòng chọn ít nhất 1 file.');
       return;
     }
 
-    startTransition(async () => {
-      setProgress({ done: 0, total: files.length });
-      const failed: string[] = [];
+    const batch = [...files];
+    setUploading(true);
+    setProgress({ done: 0, total: batch.length });
+    setStatuses(Object.fromEntries(batch.map((f) => [fileKey(f), { state: 'pending' } as FileStatus])));
 
-      // Tải lần lượt từng file — mỗi file thành 1 tài liệu riêng, tiêu đề lấy
-      // theo tên file (không cần người dùng gõ tay tiêu đề/mô tả nữa).
-      for (const file of files) {
-        try {
-          const urlRes = await requestDocumentUploadUrlAction({
-            meetingId: meeting.id,
-            fileName: file.name,
-            fileSize: file.size,
-            mimeType: file.type || 'application/octet-stream'
-          });
-          if (urlRes?.error || !urlRes?.data) {
-            failed.push(`${file.name}: ${urlRes?.error ?? 'không xin được URL tải lên'}`);
-            continue;
-          }
+    const succeeded = new Set<string>();
+    let failedCount = 0;
 
-          await putFileToStorage(urlRes.data.uploadUrl, file);
-
-          const res = await confirmDocumentUploadAction({
-            meetingId: meeting.id,
-            title: titleFromFileName(file.name),
-            description: '',
-            storagePath: urlRes.data.storagePath,
-            fileName: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            fileSize: file.size
-          });
-          if (res?.error) failed.push(`${file.name}: ${res.error}`);
-        } catch (e: any) {
-          failed.push(`${file.name}: ${e?.message ?? 'lỗi không xác định'}`);
-        } finally {
-          setProgress((p) => (p ? { done: p.done + 1, total: p.total } : p));
+    // Mỗi file thành 1 tài liệu riêng; một file lỗi KHÔNG làm dừng các file còn lại.
+    await runPool(batch, UPLOAD_CONCURRENCY, async (file) => {
+      const key = fileKey(file);
+      setStatus(key, { state: 'uploading' });
+      try {
+        const err = await uploadOne(file);
+        if (err) {
+          failedCount++;
+          setStatus(key, { state: 'error', message: err });
+        } else {
+          succeeded.add(key);
+          setStatus(key, { state: 'done' });
         }
-      }
-
-      setProgress(null);
-      if (failed.length > 0) {
-        setError(`Có ${failed.length} file tải lên thất bại: ${failed.join('; ')}`);
-      } else {
-        formRef.current?.reset();
+      } catch (e: any) {
+        failedCount++;
+        setStatus(key, { state: 'error', message: e?.message ?? 'Lỗi không xác định' });
+      } finally {
+        setProgress((p) => (p ? { done: p.done + 1, total: p.total } : p));
       }
     });
+
+    // Chỉ giữ lại các file LỖI trong danh sách để bấm "Tải lên" thử lại —
+    // file đã lên thành công bị loại ra, nên thử lại sẽ không tạo tài liệu trùng.
+    setFiles(batch.filter((f) => !succeeded.has(fileKey(f))));
+    setStatuses((prev) => Object.fromEntries(Object.entries(prev).filter(([, v]) => v.state === 'error')));
+    setProgress(null);
+    setUploading(false);
+    if (failedCount > 0) {
+      setError(`${succeeded.size} file đã tải lên, ${failedCount} file lỗi (xem chi tiết bên dưới). Bấm "Tải lên" để thử lại các file lỗi.`);
+    }
   }
 
   return (
     <div className="space-y-4">
       {canUpload && (
-        <form ref={formRef} action={handleUpload} className="card p-4 space-y-2.5">
-          <h3 className="font-semibold">Tải tài liệu lên (lưu trên server vật lý)</h3>
-          <input name="files" type="file" multiple required className="input" />
+        <div className="card p-4 space-y-2.5">
+          <h3 className="font-semibold">Tải tài liệu lên</h3>
+          <MultiFilePicker
+            files={files}
+            onChange={(f) => {
+              setFiles(f);
+              setError(null);
+            }}
+            statuses={statuses}
+            disabled={uploading}
+            onReject={(msgs) => msgs.length && setError(msgs.join(' · '))}
+          />
           <p className="text-xs text-inksoft">
-            Có thể chọn nhiều file cùng lúc — mỗi file sẽ thành 1 tài liệu riêng, tiêu đề lấy theo tên file.
+            Mỗi file sẽ thành 1 tài liệu riêng, tiêu đề lấy theo tên file. Chọn được nhiều lần, file được cộng dồn.
           </p>
           {progress && (
-            <p className="text-xs text-inksoft">
-              Đang tải lên {progress.done}/{progress.total} file…
-            </p>
+            <div>
+              <div className="h-1.5 rounded bg-line overflow-hidden">
+                <div
+                  className="h-full bg-gold transition-all"
+                  style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-inksoft mt-1">
+                Đang tải lên {progress.done}/{progress.total} file…
+              </p>
+            </div>
           )}
           {error && <p className="text-red text-sm">{error}</p>}
-          <button type="submit" disabled={isPending} className="btn-primary">
-            {isPending ? 'Đang tải lên…' : 'Tải lên'}
+          <button
+            type="button"
+            onClick={handleUpload}
+            disabled={uploading || files.length === 0}
+            className="btn-primary disabled:opacity-40"
+          >
+            {uploading ? 'Đang tải lên…' : files.length > 1 ? `Tải lên ${files.length} file` : 'Tải lên'}
           </button>
-        </form>
+        </div>
       )}
 
       <div className="space-y-2.5">

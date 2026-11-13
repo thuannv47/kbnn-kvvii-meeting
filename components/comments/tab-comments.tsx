@@ -5,6 +5,11 @@ import type { Meeting, MeetingDepartment, MeetingParticipant } from '@/types/mee
 import type { Profile } from '@/types/user';
 import { canCommentMeeting, canDeleteComment } from '@/lib/permissions';
 import { addCommentAction, deleteCommentAction, requestCommentAttachmentUploadUrlAction } from '@/actions/comment.actions';
+import MultiFilePicker, { fileKey, type FileStatus } from '@/components/ui/multi-file-picker';
+import { runPool, putFileToStorage } from '@/lib/upload/run-pool';
+import { MAX_ATTACHMENTS_PER_COMMENT } from '@/lib/storage/constants';
+
+type UploadedAttachment = { storagePath: string; fileName: string; mimeType: string; fileSize: number };
 
 export default function TabComments({
   meeting,
@@ -23,56 +28,76 @@ export default function TabComments({
   const canDelete = canDeleteComment(meeting, profile);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const [content, setContent] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [statuses, setStatuses] = useState<Record<string, FileStatus>>({});
+  // Nhớ các file ĐÃ lên B2 thành công: nếu gửi lỗi giữa chừng, bấm gửi lại sẽ không tải lên lần nữa.
+  const uploadedRef = useRef<Map<string, UploadedAttachment>>(new Map());
 
-  function submit(formData: FormData) {
+  function setStatus(key: string, st: FileStatus) {
+    setStatuses((prev) => ({ ...prev, [key]: st }));
+  }
+
+  function submit() {
     setError(null);
-    const content = String(formData.get('content') || '').trim();
-    const file = formData.get('file') as File | null;
-    if (!content && (!file || file.size === 0)) {
+    const text = content.trim();
+    if (!text && files.length === 0) {
       setError('Vui lòng nhập ý kiến hoặc đính kèm file.');
       return;
     }
 
     startTransition(async () => {
       try {
-        const payload = new FormData();
-        payload.set('meeting_id', meeting.id);
-        payload.set('content', content);
-
-        // Có file đính kèm: PUT thẳng lên B2 trước (không qua Server Action)
-        // rồi mới gửi metadata kèm ý kiến.
-        if (file && file.size > 0) {
-          const urlRes = await requestCommentAttachmentUploadUrlAction({
-            meetingId: meeting.id,
-            fileName: file.name,
-            fileSize: file.size,
-            mimeType: file.type || 'application/octet-stream'
-          });
-          if (urlRes?.error || !urlRes?.data) {
-            setError(urlRes?.error ?? 'Không xin được URL tải lên.');
-            return;
+        // 1) Tải các file chưa lên (song song 3 file) THẲNG lên B2.
+        const todo = files.filter((f) => !uploadedRef.current.has(fileKey(f)));
+        let failed = 0;
+        await runPool(todo, 3, async (file) => {
+          const key = fileKey(file);
+          setStatus(key, { state: 'uploading' });
+          try {
+            const urlRes = await requestCommentAttachmentUploadUrlAction({
+              meetingId: meeting.id,
+              fileName: file.name,
+              fileSize: file.size,
+              mimeType: file.type || 'application/octet-stream'
+            });
+            if (urlRes?.error || !urlRes?.data) throw new Error(urlRes?.error ?? 'Không xin được URL tải lên.');
+            await putFileToStorage(urlRes.data.uploadUrl, file);
+            uploadedRef.current.set(key, {
+              storagePath: urlRes.data.storagePath,
+              fileName: file.name,
+              mimeType: file.type || 'application/octet-stream',
+              fileSize: file.size
+            });
+            setStatus(key, { state: 'done' });
+          } catch (e: any) {
+            failed++;
+            setStatus(key, { state: 'error', message: e?.message ?? 'Tải file thất bại.' });
           }
+        });
 
-          const putRes = await fetch(urlRes.data.uploadUrl, {
-            method: 'PUT',
-            headers: { 'Content-Type': file.type || 'application/octet-stream' },
-            body: file
-          });
-          if (!putRes.ok) {
-            setError('Tải file lên kho lưu trữ thất bại.');
-            return;
-          }
-
-          payload.set('storage_path', urlRes.data.storagePath);
-          payload.set('file_name', file.name);
-          payload.set('mime_type', file.type || 'application/octet-stream');
-          payload.set('file_size', String(file.size));
+        // Có file lỗi thì CHƯA gửi ý kiến, để người dùng xử lý (bỏ file lỗi hoặc thử lại).
+        if (failed > 0) {
+          setError(`${failed} file tải lên lỗi. Hãy bỏ file lỗi hoặc bấm "Gửi ý kiến" để thử lại.`);
+          return;
         }
 
+        // 2) Gửi ý kiến kèm danh sách metadata các file.
+        const attachments = files.map((f) => uploadedRef.current.get(fileKey(f))!).filter(Boolean);
+        const payload = new FormData();
+        payload.set('meeting_id', meeting.id);
+        payload.set('content', text);
+        payload.set('attachments', JSON.stringify(attachments));
+
         const res = await addCommentAction(payload);
-        if (res?.error) setError(res.error);
-        else formRef.current?.reset();
+        if (res?.error) {
+          setError(res.error);
+          return;
+        }
+        setContent('');
+        setFiles([]);
+        setStatuses({});
+        uploadedRef.current.clear();
       } catch (e: any) {
         setError(e?.message ?? 'Gửi ý kiến thất bại.');
       }
@@ -89,14 +114,30 @@ export default function TabComments({
       </div>
 
       {canComment && (
-        <form ref={formRef} action={submit} className="card p-4 space-y-2.5">
-          <textarea name="content" rows={3} placeholder="Nhập ý kiến của bạn…" className="input" />
-          <input name="file" type="file" className="input" />
+        <div className="card p-4 space-y-2.5">
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={3}
+            placeholder="Nhập ý kiến của bạn…"
+            className="input"
+          />
+          <MultiFilePicker
+            files={files}
+            onChange={(f) => {
+              setFiles(f);
+              setError(null);
+            }}
+            statuses={statuses}
+            disabled={isPending}
+            maxFiles={MAX_ATTACHMENTS_PER_COMMENT}
+            onReject={(msgs) => msgs.length && setError(msgs.join(' · '))}
+          />
           {error && <p className="text-red text-sm">{error}</p>}
-          <button type="submit" disabled={isPending} className="btn-primary">
+          <button type="button" onClick={submit} disabled={isPending} className="btn-primary">
             {isPending ? 'Đang gửi…' : 'Gửi ý kiến'}
           </button>
-        </form>
+        </div>
       )}
     </div>
   );

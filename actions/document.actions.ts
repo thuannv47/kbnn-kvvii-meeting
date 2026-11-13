@@ -5,7 +5,7 @@ import { createServerSupabase } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/auth/current-user';
 import { canUploadDocument, canAddVersion, canDeleteDocument } from '@/lib/permissions';
 import { logAudit } from '@/lib/audit/log';
-import { buildStoragePath, getUploadUrl, deleteFile, MAX_FILE_SIZE, ALLOWED_MIME } from '@/lib/storage/b2';
+import { buildStoragePath, getUploadUrl, deleteFile, isStoragePathOfMeeting, MAX_FILE_SIZE, ALLOWED_MIME } from '@/lib/storage/b2';
 
 async function loadMeetingContext(supabase: ReturnType<typeof createServerSupabase>, meetingId: string) {
   const { data: meeting } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
@@ -90,6 +90,9 @@ export async function confirmDocumentUploadAction(input: {
   if (!meeting) return { error: 'Không tìm thấy cuộc họp.' };
   if (!canUploadDocument(meeting as any, perms as any, profile, participants as any)) {
     return { error: 'Bạn không có quyền tải tài liệu lên cuộc họp này.' };
+  }
+  if (!isStoragePathOfMeeting(input.storagePath, 'meeting-documents', meeting.code) || input.fileSize > MAX_FILE_SIZE) {
+    return { error: 'File tải lên không hợp lệ.' };
   }
 
   const { data: doc, error: docErr } = await supabase
@@ -196,6 +199,10 @@ export async function confirmDocumentVersionAction(input: {
         'Bạn không có quyền cập nhật phiên bản tài liệu này. Chỉ người tạo/chủ trì phòng họp mới được ' +
         'sửa nội dung khi cuộc họp còn ở trạng thái Nháp (ADMIN được bỏ qua giới hạn này).'
     };
+  }
+
+  if (!isStoragePathOfMeeting(input.storagePath, 'meeting-documents', meeting.code) || input.fileSize > MAX_FILE_SIZE) {
+    return { error: 'File tải lên không hợp lệ.' };
   }
 
   // Chặn race-condition: chỉ chấp nhận đúng version kế tiếp đã tính khi xin URL.

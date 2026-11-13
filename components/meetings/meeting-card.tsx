@@ -21,7 +21,7 @@ function fmtRange(startIso: string, endIso: string) {
 /**
  * Thẻ cuộc họp dùng chung cho trang "Cuộc họp" và "Tìm kiếm" — bố cục khớp
  * với bản mẫu: tiêu đề + menu 3 chấm, đường kẻ ngăn, rồi các dòng
- * Trạng thái / Đơn vị / Địa điểm / Ngày họp / Loại.
+ * Trạng thái / Đơn vị khởi tạo / Địa điểm / Ngày họp / Loại.
  */
 export default function MeetingCard({
   meeting,
@@ -63,7 +63,7 @@ export default function MeetingCard({
         </div>
         {departmentName && (
           <div className="flex items-baseline gap-1.5">
-            <dt className="text-inksoft flex-shrink-0">Đơn vị:</dt>
+            <dt className="text-inksoft flex-shrink-0">Đơn vị khởi tạo:</dt>
             <dd className="font-medium">{departmentName}</dd>
           </div>
         )}

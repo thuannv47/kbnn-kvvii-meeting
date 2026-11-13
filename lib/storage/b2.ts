@@ -93,14 +93,23 @@ export async function deleteFile(storagePath: string) {
   await client.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: storagePath }));
 }
 
-// Giới hạn kích thước/loại file — không còn bị chặn bởi Vercel Function 4.5MB
-// vì file đi thẳng trình duyệt -> B2, nhưng vẫn kiểm tra ở server trước khi cấp URL.
-export const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
-export const ALLOWED_MIME = [
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'image/png',
-  'image/jpeg'
-];
+// Giới hạn kích thước/loại file nằm ở constants.ts (dùng chung với trình duyệt).
+export { MAX_FILE_SIZE, ALLOWED_MIME } from './constants';
+
+/**
+ * Chống giả mạo storage_path: đường dẫn do trình duyệt gửi lên ở bước "xác nhận"
+ * phải đúng là đường dẫn server đã cấp cho CHÍNH cuộc họp này
+ * (cấu trúc: <bucket>/<yyyy>/<mm>/<mã cuộc họp>/...). Nếu không, người dùng có thể
+ * gắn đường dẫn file của cuộc họp khác vào tài liệu/ý kiến của mình để đọc lén.
+ */
+export function isStoragePathOfMeeting(storagePath: string, bucket: StorageBucket, meetingCode: string) {
+  const parts = storagePath.split('/');
+  return (
+    parts.length >= 7 &&
+    parts[0] === bucket &&
+    /^\d{4}$/.test(parts[1]) &&
+    /^\d{2}$/.test(parts[2]) &&
+    parts[3] === meetingCode &&
+    !parts.includes('..')
+  );
+}
