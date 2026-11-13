@@ -5,7 +5,8 @@ import { createServerSupabase } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/auth/current-user';
 import { canCommentMeeting, canDeleteComment } from '@/lib/permissions';
 import { logAudit } from '@/lib/audit/log';
-import { buildStoragePath, getUploadUrl, deleteFile, MAX_FILE_SIZE, ALLOWED_MIME } from '@/lib/storage/b2';
+import { buildStoragePath, getUploadUrl, deleteFile, isStoragePathOfMeeting, MAX_FILE_SIZE, ALLOWED_MIME } from '@/lib/storage/b2';
+import { MAX_ATTACHMENTS_PER_COMMENT } from '@/lib/storage/constants';
 
 /**
  * Xin URL để trình duyệt PUT tệp đính kèm ý kiến THẲNG lên B2 (tránh giới hạn
@@ -55,14 +56,22 @@ export async function addCommentAction(formData: FormData) {
 
   const meetingId = String(formData.get('meeting_id'));
   const content = String(formData.get('content') || '').trim();
-  // Nếu có file đính kèm, trình duyệt đã PUT thẳng lên B2 trước đó (xem
-  // requestCommentAttachmentUploadUrlAction) — ở đây chỉ nhận lại metadata.
-  const storagePath = String(formData.get('storage_path') || '');
-  const fileName = String(formData.get('file_name') || '');
-  const mimeType = String(formData.get('mime_type') || '');
-  const fileSize = Number(formData.get('file_size') || 0);
+  // File đính kèm: trình duyệt đã PUT thẳng lên B2 trước đó (xem
+  // requestCommentAttachmentUploadUrlAction) — ở đây chỉ nhận lại danh sách metadata (JSON).
+  type Att = { storagePath: string; fileName: string; mimeType: string; fileSize: number };
+  let attachments: Att[] = [];
+  try {
+    const raw = String(formData.get('attachments') || '[]');
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) attachments = parsed as Att[];
+  } catch {
+    return { error: 'Danh sách file đính kèm không hợp lệ.' };
+  }
+  if (attachments.length > MAX_ATTACHMENTS_PER_COMMENT) {
+    return { error: `Chỉ được đính kèm tối đa ${MAX_ATTACHMENTS_PER_COMMENT} file cho mỗi ý kiến.` };
+  }
 
-  if (!meetingId || (!content && !storagePath)) {
+  if (!meetingId || (!content && attachments.length === 0)) {
     return { error: 'Vui lòng nhập ý kiến hoặc đính kèm file.' };
   }
 
@@ -78,6 +87,18 @@ export async function addCommentAction(formData: FormData) {
     return { error: 'Bạn không có quyền tham gia ý kiến cho cuộc họp này.' };
   }
 
+  // Chống giả mạo đường dẫn: mỗi file phải nằm đúng thư mục của cuộc họp này.
+  for (const a of attachments) {
+    if (
+      typeof a?.storagePath !== 'string' ||
+      !isStoragePathOfMeeting(a.storagePath, 'meeting-comments', meeting.code) ||
+      !a.fileName ||
+      Number(a.fileSize) > MAX_FILE_SIZE
+    ) {
+      return { error: 'File đính kèm không hợp lệ.' };
+    }
+  }
+
   const { data: comment, error } = await supabase
     .from('meeting_comments')
     .insert({
@@ -91,17 +112,25 @@ export async function addCommentAction(formData: FormData) {
 
   if (error || !comment) return { error: 'Không gửi được ý kiến: ' + (error?.message ?? '') };
 
-  if (storagePath) {
-    await supabase.from('comment_attachments').insert({
-      comment_id: comment.id,
-      file_name: fileName,
-      storage_path: storagePath,
-      mime_type: mimeType || null,
-      file_size: fileSize || null
-    });
+  if (attachments.length > 0) {
+    const { error: attErr } = await supabase.from('comment_attachments').insert(
+      attachments.map((a) => ({
+        comment_id: comment.id,
+        file_name: a.fileName,
+        storage_path: a.storagePath,
+        mime_type: a.mimeType || null,
+        file_size: Number(a.fileSize) || null
+      }))
+    );
+    if (attErr) {
+      // Không để lại ý kiến "mất file": thu hồi ý kiến vừa tạo và dọn file đã lên B2.
+      await supabase.from('meeting_comments').delete().eq('id', comment.id);
+      for (const a of attachments) await deleteFile(a.storagePath).catch(() => {});
+      return { error: 'Không lưu được file đính kèm: ' + attErr.message };
+    }
   }
 
-  await logAudit({ userId: authId, action: 'ADD_COMMENT', entityType: 'comment', entityId: comment.id, metadata: { meeting_id: meetingId } });
+  await logAudit({ userId: authId, action: 'ADD_COMMENT', entityType: 'comment', entityId: comment.id, metadata: { meeting_id: meetingId, attachments: attachments.length } });
 
   revalidatePath(`/meetings/${meetingId}`);
   return { data: comment };

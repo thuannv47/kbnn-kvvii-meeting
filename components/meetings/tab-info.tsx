@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Meeting, MeetingDepartment, MeetingParticipant } from '@/types/meeting';
 import type { Department } from '@/types/user';
 import { updateMeetingStatusAction, deleteMeetingAction, updateMeetingInfoAction, checkMeetingScheduleConflictsAction } from '@/actions/meeting.actions';
-import { formatDateVN, formatTimeVN } from '@/lib/format-date';
+import { formatDateVN, formatLongDateVN, formatTimeVN } from '@/lib/format-date';
 import { IconPin, IconCalendarDays, IconClock, IconUser, IconCheck, IconFile } from '@/components/ui/icons';
 
 type PickableUser = {
@@ -288,6 +288,7 @@ export default function TabInfo({
               <div className="flex items-center gap-2">
                 <IconCalendarDays size={16} className="text-inksoft flex-shrink-0" />
                 <span className="font-medium">{formatDateVN(meeting.start_at)}</span>
+                <span className="text-inksoft">{formatLongDateVN(meeting.start_at)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <IconClock size={16} className="text-inksoft flex-shrink-0" />

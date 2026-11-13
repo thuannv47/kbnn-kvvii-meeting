@@ -43,7 +43,7 @@ export default function MeetingOverviewCard({ meeting }: { meeting: MeetingOverv
         </div>
         {meeting.host_department_name && (
           <div className="flex items-baseline gap-1.5">
-            <dt className="text-inksoft flex-shrink-0">Đơn vị:</dt>
+            <dt className="text-inksoft flex-shrink-0">Đơn vị khởi tạo:</dt>
             <dd className="font-medium">{meeting.host_department_name}</dd>
           </div>
         )}
